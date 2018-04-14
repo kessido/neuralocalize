@@ -18,7 +18,10 @@ def get_matlab_matrix_as_numpy(nii_path):
     :param nii_path: A path to the nii file.
     :return: numpy matrix with the same data.
     """
-    nib_data = nib.load(nii_path)
+    nib_data = nib.load(nii_path) # TODO this might be more complicated: may load separately for each cifti.
+    # for the ICA matrix we needed:
+    # np.array(nib_data.dataobj)
+    # This might be different for every nii file.
     return np.array(nib_data)  # TODO(loya) make sure np.array and not np.matrix, potential bug.
 
 
