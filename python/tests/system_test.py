@@ -24,6 +24,7 @@ def get_matlab_matrix_as_numpy(nii_path):
 
 
 # TODO(loya) when we have a list of methods and files, create a decorator and run.
+# TODO when done, change into 5 different tests and one end to end.
 def abstract_test(method_to_test, nii_path):
     """Test pattern for the module: runs the method and checks that the result is the same.
     :param method_to_test: The method we wish to test

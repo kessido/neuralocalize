@@ -12,6 +12,7 @@ def run_group_ica_seperatly(left_hemisphere_data, right_hemisphere_data, num_ic=
     :param num_ic:
     :return:
     """
+    # TODO(itay)
     pass
 
 
@@ -24,6 +25,7 @@ def run_group_ica_together(left_hemisphere_data, right_hemisphere_data, num_ic=5
     :param num_ic:
     :return:
     """
+    # TODO(itay)
     pass
 
 def run_dual_regression(left_right_hemisphere_data, size_of_g=91282):
@@ -33,6 +35,7 @@ def run_dual_regression(left_right_hemisphere_data, size_of_g=91282):
     :param size_of_g:
     :return:
     """
+    # TODO(loya)
     pass
 
 def get_subcortical_parcellation():
@@ -40,6 +43,7 @@ def get_subcortical_parcellation():
 
     :return:
     """
+    # TODO(kess)
     pass
 
 def get_semi_dense_connectome():
@@ -48,4 +52,5 @@ def get_semi_dense_connectome():
 
     :return:
     """
+    # TODO(loya)
     pass
