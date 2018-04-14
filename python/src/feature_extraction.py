@@ -5,7 +5,7 @@ import numpy as np
 
 def run_group_ica_seperatly(left_hemisphere_data, right_hemisphere_data, num_ic=40, N=91282):
     # TODO num_ic, N, consts: figure out and rename.
-    """Runs a group ICA for each henmisphere seperatly.
+    """Runs a group ICA for each hemisphere separately.
 
     :param left_hemisphere_data:
     :param right_hemisphere_data:
@@ -17,7 +17,7 @@ def run_group_ica_seperatly(left_hemisphere_data, right_hemisphere_data, num_ic=
 
 def run_group_ica_together(left_hemisphere_data, right_hemisphere_data, num_ic=50):
     # TODO num_ic, N, consts: figure out and rename.
-    """Runs a group ICA for both henmispheres, to use as spatial filters.
+    """Runs a group ICA for both hemispheres, to use as spatial filters.
 
     :param left_hemisphere_data:
     :param right_hemisphere_data:
