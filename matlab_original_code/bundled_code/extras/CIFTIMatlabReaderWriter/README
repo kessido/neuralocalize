@@ -1,0 +1,16 @@
+This package contains and requires:
+
+1) A caret7 caret_command binary for 64bit Linux (modified 2/1/2012 or later)
+2) An updated/bugfixed version of the GIFTI matlab library (based on version 1.1 from http://www.artefact.tk/software/matlab/gifti/, but now properly handles GIFTI label tables/files)
+3) ciftiopen.m and ciftisave.m, wrappers that convert CIFTI files into GIFTI external binary files and then read the into matlab, or save a GIFTI external binary file and convert it to a CIFTI file
+
+Usage:
+gifti_object = ciftiopen('path/to/file.dtseries.nii','/path/to/caret7/caret_command');
+
+Outputs a GIFTI object.  Access CIFTI matrix data with gifti_object.cdata.  Access the whole struct with gifti_object.private
+
+ciftisave(gifti_object,'path/to/file.dtseries.nii','/path/to/caret7/caret_command');
+
+Saves a GIFTI object.  Need to reuse an input GIFTI object that contains the CIFTI header extension in it (i.e. the original gifti_object from ciftiopen).
+
+
