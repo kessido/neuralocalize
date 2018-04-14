@@ -10,17 +10,20 @@
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%
 % Replace the below your own
-datadir='/vols/Scratch/HCP/rfMRI/subjectsD'; 
-outdir='/path/to/results';
-unix(['mkdir -p ' outdir]);
-addpath('./extras','./extras/CIFTIMatlabReaderWriter');
-addpath('/path/to/FastICA_25');  % From http://research.ics.aalto.fi/ica/fastica
+datadir='..\data'; 
+outdir='..\matlab_results';
+unix(['mkdir ' outdir]);
+addpath('.\extras','.\extras\CIFTIMatlabReaderWriter');
+addpath('.\FastICA_25');  % From http://research.ics.aalto.fi/ica/fastica
 % %%%%%%%%%%%%%%%%%%%%%%%%%%
-subjects=textread('./extras/subjects.txt','%s');
+subjects=textread('.\extras\subjects.txt','%s');
 sessions={'1' 'LR';'1' 'RL';'2' 'LR';'2' 'RL'};
 
 % Read group PCA results and split Left/Right hemispheres
-[cifti,BM]=open_wbfile('./extras/GROUP_PCA_200_RFMRI.dtseries.nii');
+% Download
+% https://ftp.humanconnectome.org/workbench/workbench-windows64-v1.2.3.zip
+% and add to path.
+[cifti,BM]=open_wbfile('.\extras\GROUP_PCA_rand200_RFMRI.dtseries.nii');
 
 LH = cifti_extract_data(cifti,'L',BM);
 RH = cifti_extract_data(cifti,'R',BM);
@@ -63,7 +66,7 @@ x=zeros(N,length(r));
 x(BM{1}.DataIndices,:)=ica_LH(r,:)';
 x(BM{2}.DataIndices,:)=ica_RH(c,:)';
 dt=cifti; dt.cdata=x;
-ciftisave(dt,[outdir '/ica_LR_MATCHED.dtseries.nii']);
+ciftisave(dt,[outdir '\ica_LR_MATCHED.dtseries.nii']);
 
 %% Run group ICA on both hemispheres (for use as spatial filters)
 Both   = double(cifti.cdata);
@@ -76,12 +79,12 @@ ica_both = ica_both .* repmat(sign(sum(sign(ica_both.*(abs(ica_both)>2)),2)),1,s
 % save
 dt=cifti;
 dt.cdata=ica_both';
-ciftisave(dt,[outdir '/ica_both_lowdim.dtseries.nii']);
+ciftisave(dt,[outdir '\ica_both_lowdim.dtseries.nii']);
 
 
 
 %% B - Dual regression 
-dt=open_wbfile([outdir '/ica_LR_MATCHED.dtseries.nii']);
+dt=open_wbfile([outdir '\ica_LR_MATCHED.dtseries.nii']);
 N_LH = size(dt.cdata,2);
 N_RH = size(dt.cdata,2);
 
@@ -96,7 +99,7 @@ Hemis(BM{2}.DataIndices,N_LH+1:N_LH+N_RH) = 1;
 
 pinvG = pinv(G);
 
-unix(['mkdir -p ' outdir '/DR']);
+unix(['mkdir ' outdir '\DR']);
 for s=1:length(subjects)
     subj=subjects{s};
     disp(subj);
@@ -105,13 +108,13 @@ for s=1:length(subjects)
     for sess = 1:4
         disp(['session ' num2str(sess)]);
         a=sessions{sess,1};b=sessions{sess,2};        
-        subjdir=[datadir '/' subj '/MNINonLinear/Results' ];
-        fname=[subjdir '/rfMRI_REST' a '_' b '/rfMRI_REST' a '_' b '_Atlas_hp2000_clean.dtseries.nii'];
+        subjdir=[datadir '\' subj '\MNINonLinear\Results' ];
+        fname=[subjdir '\rfMRI_REST' a '_' b '\rfMRI_REST' a '_' b '_Atlas_hp2000_clean.dtseries.nii'];
         cifti=open_wbfile(deblank(fname));
         cifti.cdata = variance_normalise(double(cifti.cdata)')';
         data=[data detrend(double(cifti.cdata)')'];
     end
-    oname=[outdir '/DR/' subj '_DR2_nosmoothing.dtseries.nii'];
+    oname=[outdir '\DR\' subj '_DR2_nosmoothing.dtseries.nii'];
     % DR - Step 1 (get individual time series)
     disp('DR - step 1');
     T = pinvG*data;
@@ -159,7 +162,7 @@ SC_labels{21} = 'CIFTI_STRUCTURE_THALAMUS_RIGHT';
 % Pallidum     = 1 cluster per hemisphere
 % Putamen      = 2 clusters per hemisphere
 % Thalamus     = ICA (4 per hemisphere)
-[cifti,BM]=open_wbfile('./extras/GROUP_PCA_200_RFMRI.dtseries.nii');
+[cifti,BM]=open_wbfile('.\extras\GROUP_PCA_rand200_RFMRI.dtseries.nii');
 
 
 SC_clusters =[];SC_structures=[];
@@ -244,7 +247,7 @@ SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*
 
 % save results
 dt=cifti; dt.cdata=SC_clusters;
-ciftisave(dt,[outdir '/SC_clusters.dtseries.nii']);
+ciftisave(dt,[outdir '\SC_clusters.dtseries.nii']);
 
 
 
@@ -254,21 +257,21 @@ ciftisave(dt,[outdir '/SC_clusters.dtseries.nii']);
 % then load ROIs from above
 % calculate semi-dense connectome
 
-SC=open_wbfile([outdir '/SC_clusters.dtseries.nii']);SC=double(SC.cdata);
+SC=open_wbfile([outdir '\SC_clusters.dtseries.nii']);SC=double(SC.cdata);
 
-unix(['mkdir -p ' outdir '/Features']);
+unix(['mkdir ' outdir '\Features']);
 for s=1:length(subjects)
     subj=subjects{s};
     disp(subj);
-    oname=[outdir '/DR/' subj '_DR2_nosmoothing.dtseries.nii'];
+    oname=[outdir '\DR\' subj '_DR2_nosmoothing.dtseries.nii'];
     LHRH=open_wbfile(oname);LHRH=double(LHRH.cdata);
     ROIS=[LHRH SC];
     % load RFMRI data
     W=[];
     for sess = 1:4
         a=sessions{sess,1};b=sessions{sess,2};    
-        subjdir=[datadir '/' subj '/MNINonLinear/Results' ];
-        fname=[subjdir '/rfMRI_REST' a '_' b '/rfMRI_REST' a '_' b '_Atlas_hp2000_clean.dtseries.nii'];
+        subjdir=[datadir '\' subj '\MNINonLinear\Results' ];
+        fname=[subjdir '\rfMRI_REST' a '_' b '\rfMRI_REST' a '_' b '_Atlas_hp2000_clean.dtseries.nii'];
         % read and demean data
         disp('read data');
         [cifti,BM]=open_wbfile(deblank(fname));
@@ -284,6 +287,6 @@ for s=1:length(subjects)
     % 2. correlation coefficient
     F = (normalise(T,2)*normalise(W,1))';
     dt=cifti; dt.cdata=F;
-    ciftisave(dt,[outdir '/Features/' subj '_RFMRI_nosmoothing.dtseries.nii']);    
+    ciftisave(dt,[outdir '\Features\' subj '_RFMRI_nosmoothing.dtseries.nii']);    
     
 end

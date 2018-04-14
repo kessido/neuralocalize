@@ -40,11 +40,13 @@ end
     function [cifti BM]=myciftiopen(fname)
         cmd='wb_command';
         rng('shuffle');
-        tmpfile=['/tmp/grotdtseries' zeropad(round(rand*9999),5) '.gii'];
+        temp_folder = '.\tempFiles';
+        unix(['mkdir ' temp_folder]);
+        tmpfile=[temp_folder '\grotdtseries' zeropad(round(rand*9999),5) '.gii'];
         unix([cmd ' -cifti-convert -to-gifti-ext ' fname ' ' tmpfile]);
         cifti = gifti(tmpfile);
         BM=restructure_data(cifti.private.data{1}.metadata.value ,cifti.cdata);
-        unix(['rm -f ' tmpfile ' ' tmpfile '.data']);
+        unix(['rmdir /s /q ' temp_folder]);
     end
 
     function BM=restructure_data(str,data)

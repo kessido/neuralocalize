@@ -20,7 +20,8 @@ tic
 unix([caret7command ' -cifti-convert -from-gifti-ext ' filename '.gii ' filename]);
 toc
 
-unix([' rm ' filename '.gii ' filename '.dat']);
+unix(['DEL ' filename '.gii']);
+unix(['DEL ' filename '.dat']);
 
 end
 
