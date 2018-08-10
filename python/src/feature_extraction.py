@@ -1,10 +1,19 @@
 """This code simulates the feature extraction part of the connectivity model.
 """
 
+import sklearn
 import numpy as np
+
+# TODO(loya) make sure and remove these two
 import numpy.matlib as matlib
 import sklearn.decomposition
 
+# --- GLOBAL VARIABLES
+
+# TODO(loya) fill this.
+BM = np.array([])
+
+# --- FEATURE EXTRACTION METHODS
 
 def run_group_ica_separately(left_hemisphere_data, right_hemisphere_data, num_ic=40, N=91282):
     # TODO num_ic, N, consts: figure out and rename.
@@ -33,14 +42,14 @@ def run_group_ica_together(left_hemisphere_data, right_hemisphere_data, num_ic=5
 
 
 def run_dual_regression(left_right_hemisphere_data, size_of_g=91282):
-    """Runs dual regression TODO(however) expand and elaborate.
+    """Runs dual regression TODO(whoever) expand and elaborate.
 
     :param left_right_hemisphere_data:
     :param size_of_g:
     :return:
     """
-    # TODO(loya)
-    pass
+    G = np.zeros([size_of_g, left_right_hemisphere_data.shape[2] * 2])
+    # TODO(loya)    
 
 
 def get_subcortical_parcellation(cifti_image, brain_maps):
@@ -138,11 +147,29 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
     return np.hstack(sub_cortex_clusters).transpose()
 
 
-def get_semi_dense_connectome():
+def get_semi_dense_connectome(subjects):
     """Final feature extraction (forming semi-dense connectome)
     For each subject, load RFMRI data, then load ROIs from above to calculate semi-dense connectome.
 
-    :return:
+    # ASSUMES:
+    # getting a subject list holding session array sessions, each holding left h. data, right h. data, ROIs, BM and CIFTI.
+    # In MATLAB they're all being loaded. All these members are assumed to be numpy arrays.
+    # (This is handled as an object but can be changed to a list of tuples or dictionary, whatever)
+
+    :return: A dictionary from a subject to its correlation coeff.
     """
-    # TODO(loya)
-    pass
+    subject_to_correlation_coefficient = {}
+    # TODO(loya) shapes must be validated.
+    for subject in subjects:
+        W = [] # TODO(loya) rename
+        for session in subject.sessions:
+            grot = sklearn.preprocessing.scale(session.cifti) # TODO(loya) rename
+            W.append(grot)
+        W = np.array(W)
+        # MULTIPLE REGRESSION
+        T = np.linalg.pinv(subject.ROIS) * np.transpose(W) # TODO(loya) rename
+        # CORRELATION COEFFICIENT
+        # TODO(loya) validate that the axis in MATLAB also starts from 0.
+        F = np.linalg.norm(T, axis=2) * np.transpose(np.linalg.norm(W, axis=1))
+        subject_to_correlation_coefficient[subject] = F
+    return subject_to_correlation_coefficient
