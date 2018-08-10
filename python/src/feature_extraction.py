@@ -2,6 +2,7 @@
 """
 
 import sklearn
+import scipy
 import numpy as np
 
 # TODO(loya) make sure and remove these two
@@ -41,16 +42,38 @@ def run_group_ica_together(left_hemisphere_data, right_hemisphere_data, num_ic=5
     pass
 
 
-def run_dual_regression(left_right_hemisphere_data, size_of_g=91282):
+def run_dual_regression(left_right_hemisphere_data, subjects, size_of_g=91282):
     """Runs dual regression TODO(whoever) expand and elaborate.
 
     :param left_right_hemisphere_data:
+    :param subjects:
     :param size_of_g:
     :return:
     """
-    G = np.zeros([size_of_g, left_right_hemisphere_data.shape[2] * 2])
-    # TODO(loya)    
+    single_hemisphere_shape = left_right_hemisphere_data.shape[2]
+    G = np.zeros([size_of_g, single_hemisphere_shape * 2])
+    hemis = np.zeros([size_of_g, single_hemisphere_shape * 2])
 
+    # TODO(loya) see what's data indices
+    G[BM[1], :single_hemisphere_shape] = left_right_hemisphere_data[BM[1], :]
+    G[BM[1], single_hemisphere_shape+1: 2*single_hemisphere_shape] = left_right_hemisphere_data[BM[2], :]
+
+    hemis[BM[1], :single_hemisphere_shape] = 1
+    hemis[BM[1], single_hemisphere_shape+1: 2*single_hemisphere_shape] = 1
+
+    g_pseuso_inverse = np.linalg.pinv(G)
+    for subject in subjects:
+        subject_data = []
+        for session in subject.sessions:
+            normalized_cifti = sklearn.preprocessing.scale(session.cifti, with_mean=False)
+            deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti)))
+            subject_data.append(deterended_data)
+        subject_data = np.array(subject_data)
+        T = g_pseuso_inverse * subject_data
+        # TODO(loya) GLM handling
+        cope, varcope, stats, = glm(np.transpose(T), np.transpose(subject_data))
+        cifti_data = np.transpose(stats.t) * hemis  # TODO(loya) make sure this is element-wise.
+        return cifti_data
 
 def get_subcortical_parcellation(cifti_image, brain_maps):
     """Get sub-cortical parcellation using atlas definitions and current data.
