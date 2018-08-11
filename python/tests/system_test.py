@@ -41,7 +41,7 @@ def get_matlab_matrix_as_numpy_brain_subcortical_data(nii_path):
     """
     Convert nii object into matlab matrix, and brain model meta data
     :param nii_path: A path to a nii file
-    :return: numpy matrix containing the image data, brain models iterable
+    :return: numpy matrices containing the image data, brain models iterable
     """
     nib_data = nib.load(nii_path)
     return np.array(nib_data.dataobj), nib_data.header.matrix.get_index_map(1).brain_models
@@ -53,6 +53,7 @@ def run_get_subcortical_parcellation_test():
         'GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         lambda: feature_extraction.get_subcortical_parcellation(cifti_image, brain_models)
+        # TODO this path is not in the git. Should be added into resources
         , r'..\..\matlab_results\SC_clusters.dtseries.nii')
 
 

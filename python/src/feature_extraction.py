@@ -9,12 +9,6 @@ import numpy as np
 import numpy.matlib as matlib
 import sklearn.decomposition
 
-# --- GLOBAL VARIABLES
-
-# TODO(loya) fill this.
-BM = np.array([])
-
-# --- FEATURE EXTRACTION METHODS
 
 def run_group_ica_separately(left_hemisphere_data, right_hemisphere_data, num_ic=40, N=91282):
     # TODO num_ic, N, consts: figure out and rename.
@@ -42,7 +36,7 @@ def run_group_ica_together(left_hemisphere_data, right_hemisphere_data, num_ic=5
     pass
 
 
-def run_dual_regression(left_right_hemisphere_data, subjects, size_of_g=91282):
+def run_dual_regression(left_right_hemisphere_data, subjects, BM, size_of_g=91282):
     """Runs dual regression TODO(whoever) expand and elaborate.
 
     :param left_right_hemisphere_data:
@@ -192,7 +186,7 @@ def get_semi_dense_connectome(subjects):
         # MULTIPLE REGRESSION
         T = np.linalg.pinv(subject.ROIS) * np.transpose(W) # TODO(loya) rename
         # CORRELATION COEFFICIENT
-        # TODO(loya) validate that the axis in MATLAB also starts from 0.
-        F = np.linalg.norm(T, axis=2) * np.transpose(np.linalg.norm(W, axis=1))
+        # TODO(loya) I think matlab axis start from 1, so the indices are decreased by 1.
+        F = np.linalg.norm(T, axis=1) * np.transpose(np.linalg.norm(W, axis=0))
         subject_to_correlation_coefficient[subject] = F
     return subject_to_correlation_coefficient
