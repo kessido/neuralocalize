@@ -10,30 +10,117 @@ import numpy.matlib as matlib
 import sklearn.decomposition
 
 
-def run_group_ica_separately(left_hemisphere_data, right_hemisphere_data, num_ic=40, N=91282):
+def run_group_ica_separately(cifti_image,BM,threshold=2, num_ic=40, N=91282):
     # TODO num_ic, N, consts: figure out and rename.
-    """Runs a group ICA for each hemisphere separately.
-
+    """Runs a group ICA for each hemisphere separately
     :param left_hemisphere_data:
     :param right_hemisphere_data:
+    :param BM:
     :param num_ic:
+    :param trashold:
     :return:
     """
     # TODO(itay)
+    #TODO (Itay) cifti_image to left_hemisphere_data and right_hemisphere_data
+    left_hemisphere_data = cifti_extract_data(cifti_image,BM,'L')
+    right_hemisphere_data = cifti_extract_data(cifti_image,BM,'R')
+    np.transpose(left_hemisphere_data)
+    np.transpose(right_hemisphere_data)
+    # Compute ICA
+    left_ica = sklearn.decomposition.fastica(left_hemisphere_data,num_ic)
+    right_ica = sklearn.decomposition.fastica(right_hemisphere_data,num_ic)
+    #flip signs (large tail on the right)
+    left_ica = np.multiply(left_ica,
+                        np.tile(np.sign(np.sum(np.sign(np.multiply(left_ica, (np.abs(left_ica) > 2).astype(float))), 1))
+                            ,(1, left_ica.shape[1])))
+    right_ica = np.multiply(right_ica,
+                        np.tile(np.sign(np.sum(np.sign(np.multiply(right_ica, (np.abs(right_ica) > 2).astype(float))), 1))
+                            ,(1, right_ica.shape[1])))
+    #keep ICA components that have L/R symmetry
+    #left-right DICE of cortical ICs to
+    #1) re-order the ICs
+    #2) select the ICs that are found in both hemispheres
+    x = np.zeros([32492, left_ica.shape[0]])
+    y = np.zeros([32492, right_ica.shape[0]])
+    np.put(x, get_surface_indices(BM[0]), np.transpose(left_ica))
+    np.put(y, get_surface_indices(BM[1]), np.transpose(right_ica))
+    D = dice(x>threshold,y>threshold)
+    D_threshold = (D == np.tile(np.amax(D, axis=1), (1, D.shape[1])))
+    D_tmp = ((D*D_threshold) == np.tile(np.amax(D*D_threshold,axis=0),(D.shape[1],1)))
+    D_threshold = D_tmp*D_threshold
+    r = np.nonzero(np.sum(D_threshold,1))
+    _,c = D_threshold.max(1)
+    c = c[r]
+    #save
+    x = np.zeros(N, np.max(r.shape))
+    np.put(x, get_data_indices(BM[0]), left_ica[r,:])
+    np.put(x, get_data_indices(BM[1]), right_ica[c,:])
+    return x
+
+def cifti_extract_data(cifti_image,BM,side):
+    '''extracts data from cifti images'''
+    if (side == 'L'):
+            data = cifti_image.get_fdata()[get_data_indices(BM[0])]
+    else :
+        if (side == 'R'):
+            data = cifti_image.get_fdata()[get_data_indices(BM[1])]
+        else:
+            if (side == 'both'):
+                data = cifti_image.get_fdata()[get_data_indices((BM[0], BM[1]))]
+            else:
+                print('error: bad cifti_extract_data command, side is not L, R or both')
+    return data
+
+
+def get_surface_indices(BM):
+    #TODO (Itay) find out how to work with BM
+    """gets the surface indices to change
+    :param BM:
+    :return: array of indices t change
+    """
     pass
 
+def get_data_indices(BM):
+    #TODO (Itay) find out how to work with BM
+    """gets the data indices that need for change
+    :param BM:
+    :return: array of indices to change
+    """
+    pass
 
-def run_group_ica_together(left_hemisphere_data, right_hemisphere_data, num_ic=50):
+def dice(x,y):
+    """gets x = N*nx and y = N*ny and return nx*ny
+    :param x should be N*nx:
+    :param y should be N*ny:
+    :return: nx*ny
+    """
+    if (x.shape[0] != y.shape[0]):
+        print('x and y incompatible (dice)')
+    nx = x.shape[1]
+    ny = y.shape[1]
+    xx = np.tile(np.sum(x,1),ny,1)
+    yy = np.tile(np.sum(y, 1), nx, 1)
+    temp = np.multiply(np.transpose(x.astype(np.float64)),y.astype(np.float64))
+    res = 2 * np.divide(temp, xx+yy)
+    return res
+
+
+def run_group_ica_together(cifti_image,BM, num_ic=50):
     # TODO num_ic, N, consts: figure out and rename.
     """Runs a group ICA for both hemispheres, to use as spatial filters.
-
-    :param left_hemisphere_data:
-    :param right_hemisphere_data:
+    :param both_hemisphere_data:
     :param num_ic:
     :return:
     """
     # TODO(itay)
-    pass
+    both_hemisphere_data = cifti_extract_data(cifti_image,BM,'both')
+    np.transpose(both_hemisphere_data)
+    both_ica = sklearn.decomposition.fastica(both_hemisphere_data,num_ic)
+    both_ica = np.multiply(both_ica,
+                        np.tile(np.sign(np.sum(np.sign(np.multiply(both_ica, (np.abs(both_ica) > 2).astype(float))), 1))
+                            ,(1, both_ica.shape[1])))
+    return np.transpose(both_ica)
+
 
 
 def run_dual_regression(left_right_hemisphere_data, subjects, BM, size_of_g=91282):

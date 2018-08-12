@@ -56,5 +56,18 @@ def run_get_subcortical_parcellation_test():
         # TODO this path is not in the git. Should be added into resources
         , r'..\..\matlab_results\SC_clusters.dtseries.nii')
 
+def run_group_ica_separately_test():
+    cifti_image, brain_models = get_matlab_matrix_as_numpy_brain_subcortical_data(
+        'GROUP_PCA_rand200_RFMRI.dtseries.nii')
+    abstract_test(
+        lambda: feature_extraction.run_group_ica_separately(cifti_image, brain_models)
+        , r'..\..\matlab_results\ica_LR_MATCHED.dtseries.nii')
+
+def run_group_ica_together_test():
+    cifti_image, brain_models = get_matlab_matrix_as_numpy_brain_subcortical_data(
+        'GROUP_PCA_rand200_RFMRI.dtseries.nii')
+    abstract_test(
+        lambda: feature_extraction.run_group_ica_together(cifti_image, brain_models)
+        , r'..\..\matlab_results\ica_both_lowdim.dtseries.nii')
 
 run_get_subcortical_parcellation_test()
