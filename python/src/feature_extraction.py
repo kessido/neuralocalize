@@ -4,6 +4,10 @@
 import sklearn
 import scipy
 import numpy as np
+import mdp
+import nibabel
+
+ICA_FUCKING_CONST = 0.00000117915
 
 # TODO(loya) make sure and remove these two
 import numpy.matlib as matlib
@@ -31,10 +35,10 @@ def run_group_ica_separately(cifti_image,BM,threshold=2, num_ic=40, N=91282):
     right_ica = sklearn.decomposition.fastica(right_hemisphere_data,num_ic)
     #flip signs (large tail on the right)
     left_ica = np.multiply(left_ica,
-                        np.tile(np.sign(np.sum(np.sign(np.multiply(left_ica, (np.abs(left_ica) > 2).astype(float))), 1))
+                        np.tile(np.sign(np.sum(np.sign(np.multiply(left_ica, (np.abs(left_ica) > ICA_FUCKING_CONST).astype(float))), 1))
                             ,(1, left_ica.shape[1])))
     right_ica = np.multiply(right_ica,
-                        np.tile(np.sign(np.sum(np.sign(np.multiply(right_ica, (np.abs(right_ica) > 2).astype(float))), 1))
+                        np.tile(np.sign(np.sum(np.sign(np.multiply(right_ica, (np.abs(right_ica) > ICA_FUCKING_CONST).astype(float))), 1))
                             ,(1, right_ica.shape[1])))
     #keep ICA components that have L/R symmetry
     #left-right DICE of cortical ICs to
@@ -78,7 +82,8 @@ def get_surface_indices(BM):
     :param BM:
     :return: array of indices t change
     """
-    pass
+    #nibabel.Cifti2Su Cifti2Surface
+    return BM.vertex_indices
 
 def get_data_indices(BM):
     #TODO (Itay) find out how to work with BM
@@ -86,7 +91,7 @@ def get_data_indices(BM):
     :param BM:
     :return: array of indices to change
     """
-    pass
+    return range(BM.index_offset, BM.index_offset + BM.index_count)
 
 def dice(x,y):
     """gets x = N*nx and y = N*ny and return nx*ny
@@ -233,11 +238,19 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         end_index = current_map.index_offset + current_map.index_count
         cifti_current_map_data = cifti_image[:, start_index:end_index]
         # todo(kess) this FastICA does not yield the same result as
-        ica_Y, _, _ = sklearn.decomposition.fastica(cifti_current_map_data, 3)
-        ica_Y = np.multiply(ica_Y,
-                            np.tile(np.reshape(
-                                np.sign(np.sum(np.sign(np.multiply(ica_Y, (np.abs(ica_Y) > 2).astype(float))), 1)),
-                                (3, 1)), (1, ica_Y.shape[1])))
+        ica_Y, _, _ = sklearn.decomposition.fastica(cifti_current_map_data, 3,)
+        # ica_Y = np.multiply(ica_Y,
+        #                     np.tile(np.reshape(
+        #                         np.sign(np.sum(np.sign(np.multiply(ica_Y, (np.abs(ica_Y) > ICA_FUCKING_CONST).astype(float))), 1)),
+        #                         (3, 1)), (1, ica_Y.shape[1])))
+
+        thresh = (np.abs(ica_Y) > ICA_FUCKING_CONST).astype(float)
+        ica_time_thresh = np.multiply(ica_Y, thresh)
+        end_res = np.sign(np.sum(np.sign(ica_time_thresh),1))
+        end_res_t = np.reshape(end_res,(3,1))
+        tile_res = np.tile(end_res_t, (1, ica_Y.shape[1]))
+        ica_Y = np.multiply(ica_Y, tile_res)
+
         res = np.zeros([cifti_image.shape[1], ica_Y.shape[0]])
         res[start_index:end_index, :] = ica_Y.transpose()
         return res
@@ -246,6 +259,7 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
     for current_map in brain_maps:
         x = label_to_function(current_map.brain_structure)(cifti_image, current_map)
         if x is not None:
+            print(current_map.brain_structure)
             print(x.shape)
             sub_cortex_clusters.append(x)
     return np.hstack(sub_cortex_clusters).transpose()

@@ -2,7 +2,7 @@ import pytest
 import nibabel as nib
 import numpy as np
 
-import src.feature_extraction as feature_extraction
+import feature_extraction as feature_extraction
 
 method_to_nii = [
     (feature_extraction.run_group_ica_separately, 'nii_path'),
@@ -34,6 +34,7 @@ def abstract_test(method_to_test, nii_path):
     """
     actual_output = method_to_test()  # TODO(loya) handle params if needed.
     expected_output = get_matlab_matrix_as_numpy(nii_path)
+
     assert np.allclose(actual_output, expected_output)
 
 
@@ -50,7 +51,7 @@ def get_matlab_matrix_as_numpy_brain_subcortical_data(nii_path):
 # todo(kess) Ask Noam how to integrate with her tests.
 def run_get_subcortical_parcellation_test():
     cifti_image, brain_models = get_matlab_matrix_as_numpy_brain_subcortical_data(
-        'GROUP_PCA_rand200_RFMRI.dtseries.nii')
+        r'GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         lambda: feature_extraction.get_subcortical_parcellation(cifti_image, brain_models)
         # TODO this path is not in the git. Should be added into resources
