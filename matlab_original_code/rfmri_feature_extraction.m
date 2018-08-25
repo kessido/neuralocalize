@@ -165,31 +165,31 @@ SC_labels{21} = 'CIFTI_STRUCTURE_THALAMUS_RIGHT';
 [cifti,BM]=open_wbfile('.\extras\GROUP_PCA_rand200_RFMRI.dtseries.nii');
 
 
-SC_clusters =[];SC_structures=[];
+SC_clusters =[];
 x=zeros(size(cifti.cdata,1),1);
 % Accumbens (2)
 x=0*x;x(BM{3}.DataIndices) = 1; 
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*3]; 
+SC_clusters = [SC_clusters x]; 
 x=0*x;x(BM{4}.DataIndices) = 1; 
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*4]; 
+SC_clusters = [SC_clusters x]; 
 % Amygdala (2)
 Y = cifti_extract_data(cifti,SC_labels{5},BM);
 p = reord2(1+corrcoef(Y'),0,1);
 x=0*[x(:,1) x(:,1)];x(BM{5}.DataIndices,:) = double([p>0 p<0]);
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*5]; 
+SC_clusters = [SC_clusters x]; 
 Y = cifti_extract_data(cifti,SC_labels{6},BM);
 p = reord2(1+corrcoef(Y'),0,1);
 x=0*[x(:,1) x(:,1)];x(BM{6}.DataIndices,:) = double([p>0 p<0]);
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*6]; 
+SC_clusters = [SC_clusters x]; 
 % Caudate (4)
 Y = cifti_extract_data(cifti,SC_labels{8},BM);
 p = reord2(1+corrcoef(Y'),0,1);
 x=0*[x(:,1) x(:,1)];x(BM{8}.DataIndices,:) = double([p>0 p<0]);
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*8]; 
+SC_clusters = [SC_clusters x]; 
 Y = cifti_extract_data(cifti,SC_labels{9},BM);
 p = reord2(1+corrcoef(Y'),0,1);
 x=0*[x(:,1) x(:,1)];x(BM{9}.DataIndices,:) = double([p>0 p<0]);
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*9]; 
+SC_clusters = [SC_clusters x]; 
 % Cb (6)
 Cb = cifti_extract_data(cifti,SC_labels{10},BM);
 numIC  = 3;
@@ -197,37 +197,37 @@ ica_Cb = fastica(Cb','approach', 'symm', 'g', 'tanh','lastEig',numIC,'numOfIC', 
 ica_Cb = ica_Cb .* repmat(sign(sum(sign(ica_Cb.*(abs(ica_Cb)>2)),2)),1,size(ica_Cb,2));
 x=zeros(size(cifti.cdata,1),size(ica_Cb,1));
 x(BM{10}.DataIndices,:) = ica_Cb';
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*10]; 
+SC_clusters = [SC_clusters x]; 
 Cb = cifti_extract_data(cifti,SC_labels{11},BM);
 numIC  = 3;
 ica_Cb = fastica(Cb','approach', 'symm', 'g', 'tanh','lastEig',numIC,'numOfIC', numIC);
 ica_Cb = ica_Cb .* repmat(sign(sum(sign(ica_Cb.*(abs(ica_Cb)>2)),2)),1,size(ica_Cb,2));
 x=zeros(size(cifti.cdata,1),size(ica_Cb,1));
 x(BM{11}.DataIndices,:) = ica_Cb';
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*11]; 
+SC_clusters = [SC_clusters x]; 
 % Hippocampus (4)
 Y = cifti_extract_data(cifti,SC_labels{14},BM);
 p = reord2(1+corrcoef(Y'),0,1);
 x=0*[x(:,1) x(:,1)];x(BM{14}.DataIndices,:) = double([p>0 p<0]);
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*14]; 
+SC_clusters = [SC_clusters x]; 
 Y = cifti_extract_data(cifti,SC_labels{15},BM);
 p = reord2(1+corrcoef(Y'),0,1);
 x=0*[x(:,1) x(:,1)];x(BM{15}.DataIndices,:) = double([p>0 p<0]);
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*15]; 
+SC_clusters = [SC_clusters x]; 
 % Pallidum (2)
 x=0*x(:,1);x(BM{16}.DataIndices) = 1; 
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*16]; 
+SC_clusters = [SC_clusters x]; 
 x=0*x(:,1);x(BM{17}.DataIndices) = 1; 
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*17]; 
+SC_clusters = [SC_clusters x]; 
 % Putamen (4)
 Y = cifti_extract_data(cifti,SC_labels{18},BM);
 p = reord2(1+corrcoef(Y'),0,1);
 x=0*[x(:,1) x(:,1)];x(BM{18}.DataIndices,:) = double([p>0 p<0]);
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*18]; 
+SC_clusters = [SC_clusters x]; 
 Y = cifti_extract_data(cifti,SC_labels{19},BM);
 p = reord2(1+corrcoef(Y'),0,1);
 x=0*[x(:,1) x(:,1)];x(BM{19}.DataIndices,:) = double([p>0 p<0]);
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*19]; 
+SC_clusters = [SC_clusters x]; 
 % Thalamus (6)
 Th = cifti_extract_data(cifti,SC_labels{20},BM);
 numIC  = 3;
@@ -235,14 +235,14 @@ ica_Th = fastica(Th','approach', 'symm', 'g', 'tanh','lastEig',numIC,'numOfIC', 
 ica_Th = ica_Th .* repmat(sign(sum(sign(ica_Th.*(abs(ica_Th)>2)),2)),1,size(ica_Th,2));
 x=zeros(size(cifti.cdata,1),size(ica_Th,1));
 x(BM{20}.DataIndices,:) = ica_Th';
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*20]; 
+SC_clusters = [SC_clusters x]; 
 Th = cifti_extract_data(cifti,SC_labels{21},BM);
 numIC  = 3;
 ica_Th = fastica(Th','approach', 'symm', 'g', 'tanh','lastEig',numIC,'numOfIC', numIC);
 ica_Th = ica_Th .* repmat(sign(sum(sign(ica_Th.*(abs(ica_Th)>2)),2)),1,size(ica_Th,2));
 x=zeros(size(cifti.cdata,1),size(ica_Th,1));
 x(BM{21}.DataIndices,:) = ica_Th';
-SC_clusters = [SC_clusters x]; SC_structures = [SC_structures ones(1,size(x,2))*21]; 
+SC_clusters = [SC_clusters x]; 
 
 
 % save results
