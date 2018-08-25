@@ -71,4 +71,5 @@ def run_group_ica_together_test():
         lambda: feature_extraction.run_group_ica_together(cifti_image, brain_models)
         , r'..\..\matlab_results\ica_both_lowdim.dtseries.nii')
 
-run_get_subcortical_parcellation_test()
+#run_get_subcortical_parcellation_test()
+run_group_ica_separately_test()
