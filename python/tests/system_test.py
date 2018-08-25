@@ -3,7 +3,7 @@ import nibabel as nib
 import numpy as np
 
 from utils.cifti_utils import load_nii_brain_data_from_file, BrainMap
-import src.feature_extraction as feature_extraction
+import feature_extraction as feature_extraction
 
 method_to_nii = [
     (feature_extraction.run_group_ica_separately, 'nii_path'),

@@ -10,6 +10,7 @@ class BrainMap:
         """
         Initialize from a brain map object that was loaded from the nii files. 
         """
+        self.brain_structure_name = brain_map_object.brain_structure
         self.data_indices = range(
             brain_map_object.index_offset,
             brain_map_object.index_offset + brain_map_object.index_count)
@@ -28,3 +29,6 @@ def load_nii_brain_data_from_file(nii_path):
 def load_nii_brain_image_from_file(nii_path):
     res, _ = load_nii_brain_data_from_file(nii_path)
     return res
+
+def save_image_to_file(image, nii_path):
+    nib.save(image, nii_path)
