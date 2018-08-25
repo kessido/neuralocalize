@@ -287,8 +287,6 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
     for current_map in brain_maps:
         x = label_to_function(current_map.brain_structure)(cifti_image, current_map)
         if x is not None:
-            print(current_map.brain_structure)
-            print(x.shape)
             sub_cortex_clusters.append(x)
     return np.hstack(sub_cortex_clusters).transpose()
 
