@@ -74,11 +74,22 @@ def run_group_ica_together_test():
 
 def run_get_semi_dense_connectome_test():
     cifti_image, brain_models = load_nii_brain_data_from_file(
-        r'..\test_resources\TODO')
+        r'..\test_resources\SC_clusters.dtseries.nii')
     subjects = [Subject([Session(cifti_image, brain_models)])]
 
     abstract_test(
         lambda: feature_extraction.get_semi_dense_connectome(subjects)
-        , r'..\test_resources\TODO')
+        , r'..\test_resources\100307_RFMRI_nosmoothing.dtseries.nii')
+
+def run_get_semi_dense_connectome_test():
+    cifti_image, brain_models = load_nii_brain_data_from_file(
+        r'..\test_resources\ica_LR_MATCHED.dtseries.nii')
+
+    # TODO(loya) notice there are more parameters such as ROIs
+    subjects = [Subject([Session(cifti_image, brain_models)])]
+
+    abstract_test(
+        lambda: feature_extraction.get_semi_dense_connectome(subjects)
+        , r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii')
 
 run_group_ica_separately_test()
