@@ -81,13 +81,4 @@ def run_get_semi_dense_connectome_test():
         lambda: feature_extraction.get_semi_dense_connectome(subjects)
         , r'..\test_resources\TODO')
 
-def run_get_semi_dense_connectome_test():
-    cifti_image, brain_models = load_nii_brain_data_from_file(
-        r'..\test_resources\TODO')
-    subjects = [Subject([Session(cifti_image, brain_models)])]
-
-    abstract_test(
-        lambda: feature_extraction.run_dual_regression(subjects)
-        , r'..\test_resources\TODO')
-
-run_get_subcortical_parcellation_test()
+run_group_ica_separately_test()
