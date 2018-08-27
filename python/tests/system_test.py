@@ -13,6 +13,16 @@ method_to_nii = [
     (feature_extraction.get_semi_dense_connectome, 'nii_path'),
 ]
 
+class Session(object):
+    """A class representing a session"""
+    def __init__(self, cifti):
+        self.cifti = cifti
+
+class Subject(object):
+    """A class containing a subject and everything related to it"""
+
+    def __init__(self, sessions):
+        self.sessions = sessions
 
 def get_matlab_matrix_as_numpy(nii_path):
     """Converts nii object into numpy matrix.
@@ -49,17 +59,35 @@ def run_get_subcortical_parcellation_test():
         lambda: feature_extraction.get_subcortical_parcellation(cifti_image, brain_models), r'..\..\matlab_results\SC_clusters.dtseries.nii')
 
 def run_group_ica_separately_test():
-    cifti_image, brain_models = get_matlab_matrix_as_numpy_brain_subcortical_data(
+    cifti_image, brain_models = load_nii_brain_data_from_file(
         'GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         lambda: feature_extraction.run_group_ica_separately(cifti_image, brain_models)
         , r'..\..\matlab_results\ica_LR_MATCHED.dtseries.nii')
 
 def run_group_ica_together_test():
-    cifti_image, brain_models = get_matlab_matrix_as_numpy_brain_subcortical_data(
+    cifti_image, brain_models = load_nii_brain_data_from_file(
         'GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         lambda: feature_extraction.run_group_ica_together(cifti_image, brain_models)
         , r'..\..\matlab_results\ica_both_lowdim.dtseries.nii')
+
+def run_get_semi_dense_connectome_test():
+    cifti_image, brain_models = load_nii_brain_data_from_file(
+        r'..\test_resources\TODO')
+    subjects = [Subject([Session(cifti_image, brain_models)])]
+
+    abstract_test(
+        lambda: feature_extraction.get_semi_dense_connectome(subjects)
+        , r'..\test_resources\TODO')
+
+def run_get_semi_dense_connectome_test():
+    cifti_image, brain_models = load_nii_brain_data_from_file(
+        r'..\test_resources\TODO')
+    subjects = [Subject([Session(cifti_image, brain_models)])]
+
+    abstract_test(
+        lambda: feature_extraction.run_dual_regression(subjects)
+        , r'..\test_resources\TODO')
 
 run_get_subcortical_parcellation_test()

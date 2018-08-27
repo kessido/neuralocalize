@@ -4,6 +4,7 @@
 import sklearn
 import scipy
 import numpy as np
+import utils.utils as util
 import nibabel
 
 ICA_FUCKING_CONST = 0.00000117915
@@ -141,18 +142,19 @@ def run_dual_regression(left_right_hemisphere_data, subjects, BM, size_of_g=9128
     :param size_of_g:
     :return:
     """
+
     single_hemisphere_shape = left_right_hemisphere_data.shape[2]
     G = np.zeros([size_of_g, single_hemisphere_shape * 2])
     hemis = np.zeros([size_of_g, single_hemisphere_shape * 2])
 
-    # TODO(loya) see what's data indices
-    G[BM[1], :single_hemisphere_shape] = left_right_hemisphere_data[BM[1], :]
-    G[BM[1], single_hemisphere_shape + 1: 2 * single_hemisphere_shape] = left_right_hemisphere_data[BM[2], :]
+    G[BM[0].data_indices, :single_hemisphere_shape] = left_right_hemisphere_data[BM[0].data_indices, :]
+    G[BM[1].data_indices, single_hemisphere_shape + 1: 2 * single_hemisphere_shape] = left_right_hemisphere_data[
+                                                                                           BM[1].data_indices, :]
 
-    hemis[BM[1], :single_hemisphere_shape] = 1
-    hemis[BM[1], single_hemisphere_shape + 1: 2 * single_hemisphere_shape] = 1
+    hemis[BM[0].data_indices, :single_hemisphere_shape] = 1
+    hemis[BM[1].data_indices, single_hemisphere_shape + 1 : 2 * single_hemisphere_shape] = 1
 
-    g_pseuso_inverse = np.linalg.pinv(G)
+    g_pseudo_inverse = np.linalg.pinv(G)
     for subject in subjects:
         subject_data = []
         for session in subject.sessions:
@@ -160,9 +162,9 @@ def run_dual_regression(left_right_hemisphere_data, subjects, BM, size_of_g=9128
             deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti)))
             subject_data.append(deterended_data)
         subject_data = np.array(subject_data)
-        T = g_pseuso_inverse * subject_data
-        # TODO(loya) GLM handling
-        cope, varcope, stats, = glm(np.transpose(T), np.transpose(subject_data))
+        T = g_pseudo_inverse * subject_data
+
+        cope, varcope, stats, = utils.fsl_glm(np.transpose(T), np.transpose(subject_data))
         cifti_data = np.transpose(stats.t) * hemis  # TODO(loya) make sure this is element-wise.
         return cifti_data
 
@@ -274,15 +276,13 @@ def get_semi_dense_connectome(subjects):
     subject_to_correlation_coefficient = {}
     # TODO(loya) shapes must be validated.
     for subject in subjects:
-        W = []  # TODO(loya) rename
+        W = []
         for session in subject.sessions:
-            grot = sklearn.preprocessing.scale(session.cifti)  # TODO(loya) rename
-            W.append(grot)
+            W.append(sklearn.preprocessing.scale(session.cifti))
         W = np.array(W)
         # MULTIPLE REGRESSION
         T = np.linalg.pinv(subject.ROIS) * np.transpose(W)  # TODO(loya) rename
         # CORRELATION COEFFICIENT
-        # TODO(loya) I think matlab axis start from 1, so the indices are decreased by 1.
         F = np.linalg.norm(T, axis=1) * np.transpose(np.linalg.norm(W, axis=0))
         subject_to_correlation_coefficient[subject] = F
     return subject_to_correlation_coefficient
