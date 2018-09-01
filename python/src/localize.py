@@ -42,6 +42,10 @@ ARGS = PARSER.parse_args()
 
 
 def validate_predict_args(args):
+    """Validates the prediction arguments are correct.
+    :param args:
+    :return:
+    """
     if not os.path.exists(args.input_dir):
         raise ValueError("Input file doesn't exist.")
 
@@ -50,8 +54,15 @@ def validate_train_args(args):
         raise ValueError("Input file doesn't exist.")
 
 def main():
-    # TODO(loya) validate the actions we take and run them here.
-    pass
+    if ARGS.train and not ARGS.predict:
+        validate_train_args(ARGS)
+        # TODO(loya) call the train methods.
+    elif ARGS.predict and not ARGS.train:
+        validate_predict_args(ARGS)
+        # TODO(loya) call predict.
+    else:
+        PARSER.print_help()
+        raise ValueError("Either --train or --predict must be provided, and not both.")
 
 
 if __name__ == '__main__':
