@@ -4,59 +4,128 @@
 # % S.Jbabdi 04/2016
 # Neuro-sience sementar python version.
 
-import utils.folders
-import utils.cifti_utils
 import os
+
 import numpy as np
 import sklearn.preprocessing
 
-def demean(np_array):
-    np_array - np.mean(np_array, keepdims=True)
+import utils.cifti_utils
 
-def variance_normalise(np_array):
-    old_mean = np.mean(np_array)
-    np_array = sklearn.preprocessing.normalize(np_array)
-    reap_mean = np.repeat(old_mean, (1,np_array.shape[1])) 
-    return np_array + reap_mean
 
-def func(
-        datadir='/vols/Scratch/HCP/rfMRI/subjectsD',
-        outdir='/path/to/results',
-        subjects=['100307'],
-        # Keep components
-        dPCAint=1200, dPCA=1000,
-        outname='rand100'):
-    utils.folders.create_dir(outdir)
-    sessions = [('1' 'LR'), ('1' 'RL'), ('2' 'LR'), ('2' 'RL')]  # pretefy
+#
+# def demean(np_array):
+#     return sklearn.preprocessing.scale(np_array, with_std=False)
+#
+#
+# def ss_svds(x, n):
+#     if x.shape[0] < x.shape[1]:
+#         if n < x.shape[0]:
+#             v, u = scipy.sparse.linalg.eigs(x @ x.transpose(), n)
+#         else:
+#             v, u = scipy.linalg.eig(x @ x.transpose())
+#             u = np.fliplr(u)
+#             v = np.fliplr(v)
+#         s = np.diag(np.sqrt(np.abs(v)))
+#         v = x.transpose() @ (u * np.diag((1. / np.diag(s))))
+#     else:
+#         if n < x.shape[1]:
+#             d, v = scipy.sparse.linalg.eigs(x.transpose() @ x, n)
+#         else:
+#             d, v = np.linalg.eig(x.transpose() @ x)
+#             d = np.flipud(np.fliplr(d))
+#             v = np.fliplr(v)
+#         s = np.sqrt(np.abs(d))
+#         u = x @ (v @ np.diag((1. / np.diag(s))))
+#     return u, s, v
+#
+#
+# def variance_normalise(y):
+#     yn = y
+#     uu, ss, vv = ss_svds(y, 30)
+#     vv[np.abs(vv) < 2.3 @ np.std(vv)] = 0
+#     stddevs = np.max(np.std(yn - uu @ ss @ vv.transpose()), 0.001)
+#     yn = yn / stddevs
+#     return yn
 
+def concatenate_matrices(a, b):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return np.concatenate((a, b))
+
+
+# TODO(kess) check if the whiten on the PCA make it better.
+# TODO(kess) use sklearn incremental PCA instead.
+def iterative_pca_subject(current_component,
+                          subject_image,
+                          iterative_n):
+    # In Ido's code they use another way to
+    # normalize the data which we decided not to implement.
+    subject_image = sklearn.preprocessing.scale(subject_image)
+    concat_matrix = concatenate_matrices(current_component,
+                                         subject_image)
+    cov_mat = concat_matrix @ concat_matrix.transpose()
+    # get eigenvalues in ascending order.
+    _, v = np.linalg.eigh(cov_mat)
+
+    # get the biggest eigenvectors.
+    v = np.fliplr(v)[:, : min(v.shape[0], iterative_n)]
+
+    return v.transpose() @ concat_matrix
+
+
+def get_subject_dir(subjects_rfMRI_folder,
+                    subject):
+    return os.path.join(subjects_rfMRI_folder, subject, 'MNINonLinear/Results/')
+
+
+def get_subject_rest_rfMRI_image(subject_dir, session_n, session_type):
+    file_name = os.path.join(
+        subject_dir,
+        f'rfMRI_REST{session_n}_{session_type}/' +
+        f'rfMRI_REST{session_n}_{session_type}' +
+        '_Atlas_hp2000_clean.dtseries.nii')
+    cifti, _ = utils.cifti_utils.load_nii_brain_data_from_file(file_name)
+    return np.asarray(cifti, dtype=np.float32)
+
+
+def iterative_pca(subjects, iterative_n=1200, result_n=1000):
+    res = None
+    for subject in subjects:
+        for session in subject.sessions:
+            res = iterative_pca_subject(
+                res,
+                session.image,
+                iterative_n)
+    return res[:result_n, :].transpose()
+
+
+def iterative_pca_from_files(
+        subjects_rfMRI_folder,
+        subjects,
+        iterative_n=1200,
+        result_n=1000):
     # Loop over sessions and subjects
-    W = []
-    for a, b in sessions:
-        for subject in subjects:
-            print(subject)
-            subjdir = os.path.join(datadir, subject, 'MNINonLinear/Results/')
-            fname = os.path.join(
-                subjdir, f'/rfMRI_REST{a}_{b}/rfMRI_REST{a}_{b}_Atlas_hp2000_clean.dtseries.nii')
+    pca_res = None
 
-            # % read and demean data
-            print('read data')
-            cifti, BM = utils.cifti_utils.load_nii_brain_data_from_file(fname)
-            cifti = np.asarray(cifti, dtype=np.float32)
-            grot = demean(cifti)
+    for a in ['1', '2']:
+        for b in ['LR', 'RL']:
+            for subject in subjects:
+                subject_dir = \
+                    get_subject_dir(subjects_rfMRI_folder, subject)
+                subject_session_image = \
+                    get_subject_rest_rfMRI_image(subject_dir, a, b)
+                pca_res = iterative_pca_subject(
+                    pca_res,
+                    subject_session_image,
+                    iterative_n)
+    return pca_res[:result_n, :].transpose()
 
-            # % noise variance normalisation
-            grot = variance_normalise(grot)
-            # % concat
-            W = np.concatenate(W, demean(grot))
-            # % PCA reduce W to dPCAint eigenvectors
-            print(f'do PCA {num2str(size(W,1))} {x} {num2str(size(W,2))}')
-            uu, dd = eigs(W@W.transpose(), min(dPCAint, size(W, 1)-1))
-            W = uu.transpose()@W
-    data = W[1: dPCA, :].transpose()
-
-    # % Save group PCA results
-    # dt = utils.cifti_utils.load_nii_brain_image_from_file('./extras/CIFTIMatlabReaderWriter/example.dtseries.nii')
-    # dt = data
-    result_path = os.path.join(
-        outdir, f'/GROUP_PCA_{outname}_RFMRI.dtseries.nii')
-    utils.cifti_utils.save_image_to_file(data, result_path)
+    # # % Save group PCA results
+    # # dt = utils.cifti_utils.load_nii_brain_image_from_file('./extras/CIFTIMatlabReaderWriter/example.dtseries.nii')
+    # # dt = data
+    # print(f'Saving PCA results  {data.shape[0]} x {data.shape[1]}')
+    # result_path = os.path.join(
+    #     outdir, f'GROUP_PCA_{outname}_RFMRI.dtseries.nii')
+    # utils.cifti_utils.save_image_to_file(data, result_path)

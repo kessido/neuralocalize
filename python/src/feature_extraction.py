@@ -311,3 +311,22 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         print("F.shape:", F.shape)
         subject_to_correlation_coefficient[subject] = F
     return subject_to_correlation_coefficient
+
+
+def extract_features(cifti, brain_maps, pca):
+    # TODO return end point subj_RFMRI_nosmoothing.dtseries.nii
+    pass
+
+
+def get_spatial_filters(pca):
+    # %% Load spatial filters
+    # % then threshold and do a winner-take-all
+    # disp('Load Filters');
+    # filters = open_wbfile([outdir '/ica_both_lowdim.dtseries.nii']);
+    # [m,wta]=max(filters.cdata,[],2);
+    # wta = wta .* (m>2.1);
+    # S = zeros(size(filters.cdata));
+    # for i=1:size(filters.cdata,2)
+    #     S(:,i) = double(wta==i);
+    # end
+    pass
