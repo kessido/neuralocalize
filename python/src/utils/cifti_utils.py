@@ -14,6 +14,10 @@ class BrainMap:
         self.data_indices = range(
             brain_map_object.index_offset,
             brain_map_object.index_offset + brain_map_object.index_count)
+        if brain_map_object.vertex_indices is not None:
+            self.surface_indices = brain_map_object.vertex_indices._indices
+        else:
+            self.surface_indices = []
 
 
 def load_nii_brain_data_from_file(nii_path):
