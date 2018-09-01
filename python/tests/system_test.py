@@ -2,8 +2,8 @@ import pytest
 import nibabel as nib
 import numpy as np
 
-from utils.cifti_utils import load_nii_brain_data_from_file, BrainMap
-import feature_extraction as feature_extraction
+from src.utils.cifti_utils import load_nii_brain_data_from_file, BrainMap
+import src.feature_extraction as feature_extraction
 
 method_to_nii = [
     (feature_extraction.run_group_ica_separately, 'nii_path'),
@@ -13,16 +13,27 @@ method_to_nii = [
     (feature_extraction.get_semi_dense_connectome, 'nii_path'),
 ]
 
+
 class Session(object):
     """A class representing a session"""
-    def __init__(self, cifti):
-        self.cifti = cifti
+
+    def __init__(self, path_to_nii_file):
+        self.cifti, self.brain_models = load_nii_brain_data_from_file(path_to_nii_file)
+        self.cifti = self.cifti.transpose()
+
 
 class Subject(object):
     """A class containing a subject and everything related to it"""
 
-    def __init__(self, sessions):
-        self.sessions = sessions
+    def __init__(self, left_right_hemisphere_data_path='', sessions_nii_paths=[]):
+        self.sessions = [Session(path) for path in sessions_nii_paths]
+        if left_right_hemisphere_data_path:
+            self.left_right_hemisphere_data, _ = load_nii_brain_data_from_file(
+                left_right_hemisphere_data_path)
+            self.left_right_hemisphere_data = self.left_right_hemisphere_data.transpose()
+        else:
+            self.left_right_hemisphere_data = None
+
 
 def get_matlab_matrix_as_numpy(nii_path):
     """Converts nii object into numpy matrix.
@@ -50,13 +61,16 @@ def abstract_test(method_to_test, nii_path):
 
     assert np.allclose(actual_output, expected_output)
 
+
 # todo(kess) Ask Noam how to integrate with her tests.
 def run_get_subcortical_parcellation_test():
     cifti_image, brain_models = load_nii_brain_data_from_file(
         'GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         # TODO this path is not in the git. Should be added into resources
-        lambda: feature_extraction.get_subcortical_parcellation(cifti_image, brain_models), r'..\..\matlab_results\SC_clusters.dtseries.nii')
+        lambda: feature_extraction.get_subcortical_parcellation(cifti_image, brain_models),
+        r'..\..\matlab_results\SC_clusters.dtseries.nii')
+
 
 def run_group_ica_separately_test():
     cifti_image, brain_models = load_nii_brain_data_from_file(
@@ -65,6 +79,7 @@ def run_group_ica_separately_test():
         lambda: feature_extraction.run_group_ica_separately(cifti_image, brain_models)
         , r'..\..\matlab_results\ica_LR_MATCHED.dtseries.nii')
 
+
 def run_group_ica_together_test():
     cifti_image, brain_models = load_nii_brain_data_from_file(
         'GROUP_PCA_rand200_RFMRI.dtseries.nii')
@@ -72,13 +87,43 @@ def run_group_ica_together_test():
         lambda: feature_extraction.run_group_ica_together(cifti_image, brain_models)
         , r'..\..\matlab_results\ica_both_lowdim.dtseries.nii')
 
-def run_get_semi_dense_connectome_test():
-    cifti_image, brain_models = load_nii_brain_data_from_file(
-        r'..\test_resources\TODO')
-    subjects = [Subject([Session(cifti_image, brain_models)])]
+
+def get_semi_dense_connectome_test():
+    sc_cifti_image, _ = load_nii_brain_data_from_file(
+        r'..\test_resources\SC_clusters.dtseries.nii')
+
+
+    # TODO(loya) validate these are the actual files.
+    subjects = [Subject(r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii',
+                        sessions_nii_paths=[
+                            r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
+                            r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
+                            r'..\test_resources\rfMRI_REST2_LR\rfMRI_REST2_LR_Atlas_hp2000_clean.dtseries.nii',
+                            r'..\test_resources\rfMRI_REST2_RL\rfMRI_REST2_RL_Atlas_hp2000_clean.dtseries.nii'])]
 
     abstract_test(
-        lambda: feature_extraction.get_semi_dense_connectome(subjects)
-        , r'..\test_resources\TODO')
+        # TODO(loya) this is disgusting, please fix.
+        lambda: feature_extraction.get_semi_dense_connectome(sc_cifti_image.transpose(), subjects)[subjects[0]]
+        , r'..\test_resources\100307_RFMRI_nosmoothing.dtseries.nii')
 
-run_group_ica_separately_test()
+
+def run_dual_regression_test():
+    dt, brain_models = load_nii_brain_data_from_file(
+        r'..\test_resources\ica_LR_MATCHED.dtseries.nii')
+
+    # TODO(loya) notice there are more parameters such as ROIs
+    subjects = [Subject(sessions_nii_paths=[
+        r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
+        r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
+        r'..\test_resources\rfMRI_REST2_LR\rfMRI_REST2_LR_Atlas_hp2000_clean.dtseries.nii',
+        r'..\test_resources\rfMRI_REST2_RL\rfMRI_REST2_RL_Atlas_hp2000_clean.dtseries.nii'
+    ])]
+
+    abstract_test(
+        lambda: feature_extraction.run_dual_regression(dt.transpose(), brain_models, subjects)
+        , r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii')
+
+
+# run_group_ica_separately_test()
+get_semi_dense_connectome_test()
+# run_dual_regression_test()

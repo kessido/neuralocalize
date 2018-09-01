@@ -4,7 +4,7 @@
 import sklearn
 import scipy
 import numpy as np
-import utils.utils as util
+import src.utils.utils as util
 import mdp
 import nibabel
 
@@ -136,7 +136,7 @@ def run_group_ica_together(cifti_image,BM, num_ic=50):
 
 
 
-def run_dual_regression(left_right_hemisphere_data, subjects, BM, size_of_g=91282):
+def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=91282):
     """Runs dual regression TODO(whoever) expand and elaborate.
 
     :param left_right_hemisphere_data:
@@ -145,29 +145,32 @@ def run_dual_regression(left_right_hemisphere_data, subjects, BM, size_of_g=9128
     :return:
     """
 
-    single_hemisphere_shape = left_right_hemisphere_data.shape[2]
+    single_hemisphere_shape = left_right_hemisphere_data.shape[1]
+    print(single_hemisphere_shape)
     G = np.zeros([size_of_g, single_hemisphere_shape * 2])
     hemis = np.zeros([size_of_g, single_hemisphere_shape * 2])
 
     G[BM[0].data_indices, :single_hemisphere_shape] = left_right_hemisphere_data[BM[0].data_indices, :]
-    G[BM[1].data_indices, single_hemisphere_shape + 1: 2 * single_hemisphere_shape] = left_right_hemisphere_data[
+    G[BM[1].data_indices, single_hemisphere_shape: 2 * single_hemisphere_shape] = left_right_hemisphere_data[
                                                                                            BM[1].data_indices, :]
 
     hemis[BM[0].data_indices, :single_hemisphere_shape] = 1
-    hemis[BM[1].data_indices, single_hemisphere_shape + 1 : 2 * single_hemisphere_shape] = 1
+    hemis[BM[1].data_indices, single_hemisphere_shape : 2 * single_hemisphere_shape] = 1
 
     g_pseudo_inverse = np.linalg.pinv(G)
     for subject in subjects:
         subject_data = []
+        print("NUM OF SESSIONS:", len(subject.sessions))
         for session in subject.sessions:
             normalized_cifti = sklearn.preprocessing.scale(session.cifti, with_mean=False)
             deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti)))
             subject_data.append(deterended_data)
-        subject_data = np.array(subject_data)
-        T = g_pseudo_inverse * subject_data
+        # TODO(loya) this is a potential bug. Stack? squeeze? concatenate? tile?
+        subject_data = np.concatenate(subject_data, axis=1)
+        T = g_pseudo_inverse @ subject_data
 
-        cope, varcope, stats, = utils.fsl_glm(np.transpose(T), np.transpose(subject_data))
-        cifti_data = np.transpose(stats.t) * hemis  # TODO(loya) make sure this is element-wise.
+        t = util.fsl_glm(np.transpose(T), np.transpose(subject_data))
+        cifti_data = np.transpose(t) * hemis
         return cifti_data
 
 def get_subcortical_parcellation(cifti_image, brain_maps):
@@ -272,7 +275,7 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
     return np.hstack(sub_cortex_clusters).transpose()
 
 
-def get_semi_dense_connectome(subjects):
+def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
     """Final feature extraction (forming semi-dense connectome)
     For each subject, load RFMRI data, then load ROIs from above to calculate semi-dense connectome.
 
@@ -287,13 +290,25 @@ def get_semi_dense_connectome(subjects):
     # TODO(loya) shapes must be validated.
     for subject in subjects:
         W = []
+        print ("SHAPES:",
+               "left_right_hemisphere_data:", subject.left_right_hemisphere_data.shape,
+               "semi_dense_connectome_data:", semi_dense_connectome_data.shape)
+        ROIS = np.concatenate([subject.left_right_hemisphere_data, semi_dense_connectome_data], axis=1)
+        print("ROIS.shape:", ROIS.shape)
         for session in subject.sessions:
             W.append(sklearn.preprocessing.scale(session.cifti))
-        W = np.array(W)
+        # TODO(loya) this might cause a bug.
+        print("W[0].shape before concat:", W[0].shape)
+        W = np.concatenate(W, axis=1)
+        print("W SHAPE AFTER CONCAT:", W.shape)
         # MULTIPLE REGRESSION
-        T = np.linalg.pinv(subject.ROIS) * np.transpose(W) # TODO(loya) rename
+        # TODO(loya) there was a transpose here that caused a bug. removed because for now, might be a problem.
+        print("ROIS pinv shape:", np.linalg.pinv(ROIS).shape)
+        T = np.linalg.pinv(ROIS) @ W
+        print("T shape:", T.shape)
         # CORRELATION COEFFICIENT
-        F = np.linalg.norm(T, axis=1) * np.transpose(np.linalg.norm(W, axis=0))
+        F = sklearn.preprocessing.normalize(T, axis=1) @ np.transpose(sklearn.preprocessing.normalize(W, axis=0))
+        print("F.shape:", F.shape)
         subject_to_correlation_coefficient[subject] = F
     return subject_to_correlation_coefficient
 
