@@ -308,5 +308,6 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         print("T shape:", T.shape)
         # CORRELATION COEFFICIENT
         F = sklearn.preprocessing.normalize(T, axis=1) @ np.transpose(sklearn.preprocessing.normalize(W, axis=0))
+        print("F.shape:", F.shape)
         subject_to_correlation_coefficient[subject] = F
     return subject_to_correlation_coefficient
