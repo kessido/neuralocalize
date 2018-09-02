@@ -1,5 +1,7 @@
 import os
+
 import numpy as np
+
 import utils.cifti_utils
 
 
@@ -20,6 +22,20 @@ def remove_elements_from_list(list, elements):
     :return: The list without elements.
     """
     return list(set(list) - set(elements))
+
+
+def add_ones_column_to_matrix(mat):
+    """ Add a column of 1's
+    Usually needed for linear algebra.
+
+    :param mat: The original matrix
+    :return: The matrix with another 1's column, as it's first column.
+    """
+    shape = list(mat.shape)
+    shape[1] += 1
+    res = np.ones(shape)
+    res[1:] = mat
+    return res
 
 
 def fsl_glm(x, y):
@@ -68,7 +84,8 @@ class Session(object):
 class Subject(object):
     """A class containing a subject and everything related to it"""
 
-    def __init__(self, left_right_hemisphere_data_path='', sessions_nii_paths=[]):
+    def __init__(self, name, left_right_hemisphere_data_path='', sessions_nii_paths=[]):
+        self.name = name
         self.sessions = [Session(path) for path in sessions_nii_paths]
         if left_right_hemisphere_data_path:
             self.left_right_hemisphere_data, _ = utils.cifti_utils.load_nii_brain_data_from_file(
