@@ -2,17 +2,23 @@
 """
 
 import pickle
-import utils.cifti_utils
-import utils.utils
+
 import numpy as np
-import os
 import sklearn.preprocessing
-import constants as const
+
 import feature_extraction
 import iterative_pca
+import utils.cifti_utils
+import utils.utils
 
 
 def add_one_to_matrix(mat):
+    """ Add a column of 1's
+    Usually needed for linear algebra.
+
+    :param mat: The original matrix
+    :return: The matrix with another 1's column, as it's first column.
+    """
     shape = list(mat.shape)
     shape[1] += 1
     res = np.ones(shape)
@@ -20,28 +26,29 @@ def add_one_to_matrix(mat):
     return res
 
 
-def load_subject_features(subject, features_dir):
-    subject_dir = os.path.join(features_dir, subject)
+class Localizer:
+    """A class containing the localizer data.
+    """
 
-    # functional connectivity
-    fc_features_files_path = os.path.join(
-        subject_dir, const.RFMRI_nosmoothing_filename)
-    fc_features, _ = utils.cifti_utils.load_nii_brain_data_from_file(fc_features_files_path)
-    fc_features = np.asarray(fc_features)
-
-    return fc_features
-
-
-class Localize:
     class FeatureExtractor:
+        """A class warping the scaling and feature extraction methods.
+        """
+
         def __init__(self, subjects, pca):
+            """ Init the Feature Extractor from subjects and pca.
+            Create a scaling factor of the cortical and sub cortical parts.
+
+            :param subjects: The subjects
+            :param pca:
+            """
             self.ctx_indices, self.sub_ctx_indices = \
                 utils.cifti_utils.get_cortex_and_sub_cortex_indices()
             features = map(
-                lambda cifti, brain_maps: feature_extraction.extract_features(cifti, brain_maps, pca),
+                lambda subject: feature_extraction.extract_features(subject, pca),
                 subjects)
             features = np.asarray(features)
             self.pca = pca
+            # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
             self.scaler_ctx = sklearn.preprocessing. \
                 StandardScaler().fit(features[:, self.ctx_indices])
             self.scaler_sub_ctx = sklearn.preprocessing. \
@@ -51,13 +58,13 @@ class Localize:
         def load(file_path):
             return pickle.load(open(file_path, 'rb'))
 
-        def scale(self, subjects_image):
+        def _scale(self, subjects_image):
             subjects_image[self.ctx_indices] = self.scaler_ctx.transform(subjects_image[self.ctx_indices])
             subjects_image[self.sub_ctx_indices] = self.scaler_sub_ctx.transform(subjects_image[self.sub_ctx_indices])
             return subjects_image
 
-        def extract(self, subject_data):
-            subject_image = self.scale(subject_data.image)
+        def extract(self, subject):
+            subject_image = self._scale(subject)
             return feature_extraction.extract_features(
                 subject_image, subject_data.brain_maps, self.pca)
 
@@ -80,8 +87,8 @@ class Localize:
             for j in range(self.spatial_features.shape[1]):
                 ind = self.spatial_features[:, j] > 0
                 y = task[ind]
-                M = add_one_to_matrix(subject_feature[ind])
-                betas[:, j] = np.linalg.pinv(M) @ y
+                x = add_one_to_matrix(subject_feature[ind])
+                betas[:, j] = np.linalg.pinv(x) @ y
             return betas
 
         def predict(self, x):
@@ -89,9 +96,12 @@ class Localize:
 
     def __init__(self, subjects, subjects_task):
         pca = iterative_pca.iterative_pca(subjects)
-        self.feature_extractor = Localize.FeatureExtractor(subjects, pca)
-        subject_feature = map(self.feature_extractor.extract, subjects)
-        self.predictor = Localize.Predictor(subject_feature, subjects_task, pca)
+        self._feature_extractor = Localizer.FeatureExtractor(subjects, pca)
+        subject_feature = map(self._feature_extractor.extract, subjects)
+        self._predictor = Localizer.Predictor(subject_feature, subjects_task, pca)
+
+    def predict(self, x):
+        return self._predictor.predict(x)
 
     @staticmethod
     def load(file_path):
@@ -242,3 +252,15 @@ class Localize:
 #             X[:, i] = pred
 #         pred_loo_save_path = os.path.join(predictions_dir, f'contrast_{contrastNum:03}_pred_loo.dtseries.nii')
 #         cifti.save_image_to_file(X, pred_loo_save_path)
+
+
+# def load_subject_features(subject, features_dir):
+#     subject_dir = os.path.join(features_dir, subject)
+#
+#     # functional connectivity
+#     fc_features_files_path = os.path.join(
+#         subject_dir, const.RFMRI_nosmoothing_filename)
+#     fc_features, _ = utils.cifti_utils.load_nii_brain_data_from_file(fc_features_files_path)
+#     fc_features = np.asarray(fc_features)
+#
+#     return fc_features

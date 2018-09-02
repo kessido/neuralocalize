@@ -2,8 +2,9 @@ import pytest
 import nibabel as nib
 import numpy as np
 
-from src.utils.cifti_utils import load_nii_brain_data_from_file, BrainMap
-import src.feature_extraction as feature_extraction
+from utils.cifti_utils import load_nii_brain_data_from_file, BrainMap
+import feature_extraction as feature_extraction
+from utils.utils import Subject
 
 method_to_nii = [
     (feature_extraction.run_group_ica_separately, 'nii_path'),
@@ -12,27 +13,6 @@ method_to_nii = [
     (feature_extraction.get_subcortical_parcellation, 'nii_path'),
     (feature_extraction.get_semi_dense_connectome, 'nii_path'),
 ]
-
-
-class Session(object):
-    """A class representing a session"""
-
-    def __init__(self, path_to_nii_file):
-        self.cifti, self.brain_models = load_nii_brain_data_from_file(path_to_nii_file)
-        self.cifti = self.cifti.transpose()
-
-
-class Subject(object):
-    """A class containing a subject and everything related to it"""
-
-    def __init__(self, left_right_hemisphere_data_path='', sessions_nii_paths=[]):
-        self.sessions = [Session(path) for path in sessions_nii_paths]
-        if left_right_hemisphere_data_path:
-            self.left_right_hemisphere_data, _ = load_nii_brain_data_from_file(
-                left_right_hemisphere_data_path)
-            self.left_right_hemisphere_data = self.left_right_hemisphere_data.transpose()
-        else:
-            self.left_right_hemisphere_data = None
 
 
 def get_matlab_matrix_as_numpy(nii_path):
@@ -91,7 +71,6 @@ def run_group_ica_together_test():
 def get_semi_dense_connectome_test():
     sc_cifti_image, _ = load_nii_brain_data_from_file(
         r'..\test_resources\SC_clusters.dtseries.nii')
-
 
     # TODO(loya) validate these are the actual files.
     subjects = [Subject(r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii',

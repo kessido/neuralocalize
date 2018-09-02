@@ -313,7 +313,7 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
     return subject_to_correlation_coefficient
 
 
-def extract_features(cifti, brain_maps, pca):
+def extract_features(subject, pca):
     # TODO return end point subj_RFMRI_nosmoothing.dtseries.nii
     pass
 
