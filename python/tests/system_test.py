@@ -20,13 +20,13 @@ def get_matlab_matrix_as_numpy(nii_path):
     :param nii_path: A path to the nii file.
     :return: numpy matrix with the same data.
     """
-    nib_data = nib.load(
-        nii_path)  # TODO this might be more complicated: may load separately for each cifti.
+    image, _ = load_nii_brain_data_from_file(nii_path)
+    # TODO this might be more complicated: may load separately for each cifti.
     # for the ICA matrix we needed:
     # np.array(nib_data.dataobj)
     # This might be different for every nii file.
     # TODO(loya) make sure np.array and not np.matrix, potential bug.
-    return np.array(nib_data.dataobj)
+    return image
 
 
 # TODO(loya) when we have a list of methods and files, create a decorator and run.

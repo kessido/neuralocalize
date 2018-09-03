@@ -3,7 +3,7 @@
 
 import gzip
 import pickle
-
+from constants import dtype
 import numpy as np
 import sklearn.preprocessing
 
@@ -106,7 +106,7 @@ class Localizer:
                     feature,
                     task),
                 zip(subjects_feature, subjects_task)
-            ), dtype=np.float32)
+            ), dtype=dtype)
             self.beta = np.mean(betas, axis=0)
 
         def predict(self, subjects_features):

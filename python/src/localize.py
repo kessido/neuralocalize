@@ -8,6 +8,7 @@ import numpy as np
 import sklearn.model_selection
 
 import constants
+from constants import dtype
 import utils.utils
 # TODO(loya) add full description.
 from prediction import Localizer
@@ -123,8 +124,8 @@ def get_benchmark(localizer, subjects, subjects_task):
     :return: The benchmark.
     """
     predictions = localizer.predict(subjects)
-    return float(sum(map(lambda subject_task, prediction: np.linalg.norm(subject_task - prediction),
-                         zip(subjects_task, predictions)))) / len(subjects)
+    return (sum(map(lambda subject_task, prediction: np.linalg.norm(subject_task - prediction),
+                         zip(subjects_task, predictions)))).astype(dtype) / len(subjects)
 
 
 def benchmark(subjects, subjects_task, args):
