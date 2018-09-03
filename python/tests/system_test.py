@@ -1,7 +1,7 @@
 import pytest
 import nibabel as nib
 import numpy as np
-
+import scipy.io
 from utils.cifti_utils import load_nii_brain_data_from_file, BrainMap
 import feature_extraction as feature_extraction
 from utils.utils import Subject
@@ -37,6 +37,7 @@ def abstract_test(method_to_test, nii_path):
     :param nii_path: The path holding the expected matlab matrix.
     """
     actual_output = method_to_test()  # TODO(loya) handle params if needed.
+    scipy.io.savemat('dual_regression.mat', {'dual_regression': np.transpose(actual_output)})
     expected_output = get_matlab_matrix_as_numpy(nii_path)
 
     assert np.allclose(actual_output, expected_output)
@@ -73,7 +74,8 @@ def get_semi_dense_connectome_test():
         r'..\test_resources\SC_clusters.dtseries.nii')
 
     # TODO(loya) validate these are the actual files.
-    subjects = [Subject(r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii',
+    subjects = [Subject('noam',
+                        r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii',
                         sessions_nii_paths=[
                             r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
                             r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
@@ -91,7 +93,9 @@ def run_dual_regression_test():
         r'..\test_resources\ica_LR_MATCHED.dtseries.nii')
 
     # TODO(loya) notice there are more parameters such as ROIs
-    subjects = [Subject(sessions_nii_paths=[
+    subjects = [Subject(
+        'noam',
+        sessions_nii_paths=[
         r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
         r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
         r'..\test_resources\rfMRI_REST2_LR\rfMRI_REST2_LR_Atlas_hp2000_clean.dtseries.nii',
@@ -104,5 +108,4 @@ def run_dual_regression_test():
 
 
 # run_group_ica_separately_test()
-get_semi_dense_connectome_test()
-# run_dual_regression_test()
+run_dual_regression_test()

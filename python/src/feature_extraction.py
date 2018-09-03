@@ -172,7 +172,7 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
         subject_data = []
         print("NUM OF SESSIONS:", len(subject.sessions))
         for session in subject.sessions:
-            normalized_cifti = sklearn.preprocessing.scale(session.cifti, with_mean=False)
+            normalized_cifti = sklearn.preprocessing.scale(session.cifti.transpose(), with_mean=False)
             deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti)))
             subject_data.append(deterended_data)
         subject_data = np.concatenate(subject_data, axis=1)
@@ -296,7 +296,8 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         ROIS = np.concatenate([subject.left_right_hemisphere_data, semi_dense_connectome_data], axis=1)
         print("ROIS.shape:", ROIS.shape)
         for session in subject.sessions:
-            W.append(sklearn.preprocessing.scale(session.cifti))
+            # TODO(loya) this transpose was added as a patch, when fixed completely change back.
+            W.append(sklearn.preprocessing.scale(session.cifti).transpose())
         # TODO(loya) this might cause a bug.
         print("W[0].shape before concat:", W[0].shape)
         W = np.concatenate(W, axis=1)
@@ -322,7 +323,7 @@ def extract_features(subjects, pca):
 
 
 def get_spatial_filters(pca):
-    # TODO NEED to translate
+    """Loads spatial filters, uses threshold and do winner-take-all"""
     # %% Load spatial filters
     # % then threshold and do a winner-take-all
     # disp('Load Filters');
