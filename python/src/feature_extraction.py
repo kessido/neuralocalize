@@ -332,7 +332,6 @@ def get_spatial_filters(pca_result):
     The returned matrix is an index matrix which is MATLAB compatible.
     """
     filters = get_ica_result(pca_result)  # TODO(loya) replace when implemented
-    print (filters)
     m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
 
     # +1 for MATLAB compatibility
