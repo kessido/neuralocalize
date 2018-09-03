@@ -6,6 +6,7 @@ import scipy
 import scipy.signal
 import sklearn
 
+import iterative_pca
 import utils.utils as util
 import constants
 
@@ -151,10 +152,10 @@ def run_group_ica_together(cifti_image, BM, threshold=2, num_ic=50):
 def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=91282):
     """Runs dual regression TODO(whoever) expand and elaborate.
 
+    Updates the cifti image in every subject.
     :param left_right_hemisphere_data:
     :param subjects:
     :param size_of_g:
-    :return:
     """
 
     single_hemisphere_shape = left_right_hemisphere_data.shape[1]
@@ -181,8 +182,8 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
         T = g_pseudo_inverse @ subject_data
 
         t = util.fsl_glm(np.transpose(T), np.transpose(subject_data))
-        cifti_data = np.transpose(t) * hemis
-        return cifti_data
+        subject.left_right_hemisphere_data = np.transpose(t) * hemis
+
 
 
 def get_subcortical_parcellation(cifti_image, brain_maps):
@@ -324,14 +325,10 @@ def extract_features(subjects, pca):
     pass
 
 
-def get_ica_result(pca_result):
-    pass
-
-def get_spatial_filters(pca_result):
-    """Loads spatial filters, uses threshold and do winner-take-all
+def get_spatial_filters(filters):
+    """Gets the filters (a result of the ica on the pca result), uses threshold and do winner-take-all
     The returned matrix is an index matrix which is MATLAB compatible.
     """
-    filters = get_ica_result(pca_result)  # TODO(loya) replace when implemented
     m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
 
     # +1 for MATLAB compatibility
