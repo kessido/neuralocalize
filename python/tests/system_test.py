@@ -102,10 +102,10 @@ def run_dual_regression_test():
         r'..\test_resources\rfMRI_REST2_RL\rfMRI_REST2_RL_Atlas_hp2000_clean.dtseries.nii'
     ])]
 
+    # TODO(loya) this is out of date. The test doesn't return value, but updates the .left_right... field in subjects.
     abstract_test(
         lambda: feature_extraction.run_dual_regression(dt.transpose(), brain_models, subjects)
         , r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii')
 
-
 # run_group_ica_separately_test()
-run_dual_regression_test()
+# run_dual_regression_test()
