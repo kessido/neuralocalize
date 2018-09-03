@@ -33,9 +33,9 @@ class FeatureExtractor:
         features = np.asarray(features)
 
         # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
-        # TODO(loya) remove from #
         # self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.ctx_indices])
-        # self.scaler_sub_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.sub_ctx_indices])
+        self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.ctx_indices])
+        self.scaler_sub_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.sub_ctx_indices])
 
     def _scale(self, subjects_features):
         """Scale the subject features using constant scaling factor.
