@@ -12,6 +12,7 @@ import iterative_pca
 import utils.cifti_utils
 import utils.utils
 
+
 class FeatureExtractor:
     """A class warping the scaling and feature extraction methods.
     """
@@ -24,17 +25,17 @@ class FeatureExtractor:
         :param pca_result: the PCA  to use.
         """
         self.semi_dense_connectome_data = None
-        self.default_brain_map = utils.cifti_utils.load_nii_brain_data_from_file(sample_file_path)
-        self.ctx_indices, self.sub_ctx_indices = \
-            utils.cifti_utils.get_cortex_and_sub_cortex_indices()
-        features = feature_extraction.extract_features(subjects, pca_result)
-        features = np.asarray(features)
         self.pca_result = pca_result
+
+        _, self.default_brain_map = utils.cifti_utils.load_nii_brain_data_from_file(sample_file_path)
+        self.ctx_indices, self.sub_ctx_indices = utils.cifti_utils.get_cortex_and_sub_cortex_indices(sample_file_path)
+        features = self.extract(subjects)
+        features = np.asarray(features)
+
         # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
-        self.scaler_ctx = sklearn.preprocessing. \
-            StandardScaler().fit(features[:, self.ctx_indices])
-        self.scaler_sub_ctx = sklearn.preprocessing. \
-            StandardScaler().fit(features[:, self.sub_ctx_indices])
+        # TODO(loya) remove from #
+        # self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.ctx_indices])
+        # self.scaler_sub_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.sub_ctx_indices])
 
     def _scale(self, subjects_features):
         """Scale the subject features using constant scaling factor.
@@ -49,7 +50,7 @@ class FeatureExtractor:
 
     def _get_or_create_semi_dense_connectome_data(self, pca_result, brain_map):
         if not self.semi_dense_connectome_data:
-            self.get_subcortical_parcellation(pca_result, brain_map)
+            self.semi_dense_connectome_data = feature_extraction.get_subcortical_parcellation(pca_result, brain_map)
         return self.semi_dense_connectome_data
 
     def extract(self, subjects):
@@ -61,14 +62,17 @@ class FeatureExtractor:
         left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
             self.pca_result, self.default_brain_map
         )
+        left_right_hemisphere_data = left_right_hemisphere_data.transpose()
         feature_extraction.run_dual_regression(left_right_hemisphere_data, self.default_brain_map, subjects)
 
         semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data(self.pca_result,
                                                                                     self.default_brain_map)
+        semi_dense_connectome_data = semi_dense_connectome_data.transpose()
         semi_dense_connectome_result = feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
                                                                                     subjects)
         res = np.asarray(semi_dense_connectome_result)
         return self._scale(res)
+
 
 class Predictor:
     """A class containing all the localizer predictor model data.

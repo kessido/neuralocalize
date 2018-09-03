@@ -14,14 +14,14 @@ def create_dir(path):
         os.makedirs(path)
 
 
-def remove_elements_from_list(list, elements):
+def remove_elements_from_list(input_list, elements):
     """ Remove all elements from list that are also on another list.
 
     :param list: The list to remove from.
     :param elements: The elements to remove.
     :return: The list without elements.
     """
-    return list(set(list) - set(elements))
+    return list(set(input_list) - set(elements))
 
 
 def add_ones_column_to_matrix(mat):

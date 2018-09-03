@@ -83,8 +83,9 @@ def get_subject_dir(subjects_rfMRI_folder,
 def get_subject_rest_rfMRI_image(subject_dir, session_n, session_type):
     file_name = os.path.join(
         subject_dir,
-        f'rfMRI_REST{session_n}_{session_type}/' +
-        f'rfMRI_REST{session_n}_{session_type}' +
+        # TODO(loya) move to a pretty format without these f's
+        'rfMRI_REST{session_n}_{session_type}/' +
+        'rfMRI_REST{session_n}_{session_type}' +
         '_Atlas_hp2000_clean.dtseries.nii')
     cifti, _ = utils.cifti_utils.load_nii_brain_data_from_file(file_name)
     return np.asarray(cifti, dtype=np.float32)

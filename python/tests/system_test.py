@@ -109,3 +109,4 @@ def run_dual_regression_test():
 
 # run_group_ica_separately_test()
 # run_dual_regression_test()
+get_semi_dense_connectome_test()

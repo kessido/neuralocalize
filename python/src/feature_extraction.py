@@ -2,7 +2,7 @@
 """
 import nibabel as nib
 import numpy as np
-import scipy
+import scipy.io
 import scipy.signal
 import sklearn
 
@@ -25,6 +25,7 @@ def run_group_ica_separately(cifti_image, BM, threshold=2, num_ic=40, N=91282):
     :param threshold:
     :return:
     """
+    print("run_group_ica_separately: input shape - ", cifti_image.shape)
     # TODO (Itay) cifti_image to left_hemisphere_data and right_hemisphere_data
     left_hemisphere_data = cifti_extract_data(cifti_image, BM, 'L')
     right_hemisphere_data = cifti_extract_data(cifti_image, BM, 'R')
@@ -88,7 +89,7 @@ def run_group_ica_separately(cifti_image, BM, threshold=2, num_ic=40, N=91282):
     x[np.ix_(list(BM[1].data_indices), list(range(len(c))))] = np.transpose(right_ica[c, :])
 
     # scipy.io.savemat('ica_LR_MATCHED_test.mat', {'ica_LR_MATCHED_test': np.transpose(x)})
-
+    print("run_group_ica_separately: output shape - ", np.transpose(x).shape)
     return np.transpose(x)
 
 
@@ -136,6 +137,7 @@ def run_group_ica_together(cifti_image, BM, threshold=2, num_ic=50):
     :param num_ic:
     :return:
     """
+    print("run_group_ica_together - input shape:", cifti_image.shape)
     both_hemisphere_data = cifti_extract_data(cifti_image, BM, 'both')
     # np.transpose(both_hemisphere_data)
     both_ica, _, _ = sklearn.decomposition.fastica(both_hemisphere_data, num_ic)
@@ -145,7 +147,7 @@ def run_group_ica_together(cifti_image, BM, threshold=2, num_ic=50):
     end_res_t = np.reshape(end_res, (num_ic, 1))
     tile_res = np.tile(end_res_t, (1, both_ica.shape[1]))
     both_ica = np.multiply(both_ica, tile_res)
-
+    print("run_group_ica_together - output shape:", both_ica.transpose().shape)
     return np.transpose(both_ica)
 
 
@@ -157,7 +159,8 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
     :param subjects:
     :param size_of_g:
     """
-
+    print("run_dual_regression - input shape:", left_right_hemisphere_data.shape)
+    print("subject[0].session[0].cifti shape: (using transpose)", subjects[0].sessions[0].cifti.shape)
     single_hemisphere_shape = left_right_hemisphere_data.shape[1]
     print(single_hemisphere_shape)
     G = np.zeros([size_of_g, single_hemisphere_shape * 2])
@@ -270,11 +273,13 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         res[current_map.data_indices, :] = ica_y.transpose()
         return res
 
+    print("get_subcortical_parcellation input:", cifti_image.shape)
     sub_cortex_clusters = []
     for current_map in brain_maps:
         x = label_to_function(current_map.brain_structure_name)(cifti_image, current_map)
         if x is not None:
             sub_cortex_clusters.append(x)
+    print("get_subcortical_parcellation output:", np.hstack(sub_cortex_clusters).transpose().shape)
     return np.hstack(sub_cortex_clusters).transpose()
 
 
@@ -289,6 +294,8 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
 
     :return: A dictionary from a subject to its correlation coeff.
     """
+    print("get_semi_dense_connectome - input shape:", semi_dense_connectome_data.shape)
+    print("subject[0].session[0].cifti shape: (using transpose)", subjects[0].sessions[0].cifti.shape)
     subject_to_correlation_coefficient = {}
     # TODO(loya) shapes must be validated.
     for subject in subjects:
@@ -315,14 +322,6 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         print("F.shape:", F.shape)
         subject_to_correlation_coefficient[subject] = F
     return subject_to_correlation_coefficient
-
-
-def extract_features(subjects, pca):
-    # TODO need to extract features from multiple subjects here.
-
-    # TODO some things might be repeatedly ask to calculate, like ica_LR_MATCHED ie. we might want provide it instead,
-    # TODO so that the featureExtroctor class in the prediction job is to calculate it before hand and save it.
-    pass
 
 
 def get_spatial_filters(filters):
