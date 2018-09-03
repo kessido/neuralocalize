@@ -1,12 +1,12 @@
 """This code simulates the feature extraction part of the connectivity model.
 """
 
-import sklearn
-import scipy
 import numpy as np
-import src.utils.utils as util
-import mdp
-import nibabel
+import scipy
+import scipy.signal
+import sklearn
+
+import utils.utils as util
 
 ICA_FUCKING_CONST = 0.00000117915
 
@@ -15,7 +15,7 @@ import numpy.matlib as matlib
 import sklearn.decomposition
 
 
-def run_group_ica_separately(cifti_image,BM,threshold=ICA_FUCKING_CONST, num_ic=40, N=91282):
+def run_group_ica_separately(cifti_image,BM,threshold=2, num_ic=40, N=91282):
     # TODO num_ic, N, consts: figure out and rename.
     """Runs a group ICA for each hemisphere separately
     :param left_hemisphere_data:
@@ -30,30 +30,36 @@ def run_group_ica_separately(cifti_image,BM,threshold=ICA_FUCKING_CONST, num_ic=
     right_hemisphere_data = cifti_extract_data(cifti_image,BM,'R')
     #np.transpose(left_hemisphere_data)
     #np.transpose(right_hemisphere_data)
-    # Compute ICA
-    left_ica,_,_ = sklearn.decomposition.fastica(left_hemisphere_data,num_ic)
-    right_ica,_,_ = sklearn.decomposition.fastica(right_hemisphere_data,num_ic)
+    # Compute ICA , check threshold CONST
+
+    #left_ica,_,_ = sklearn.decomposition.fastica(left_hemisphere_data,num_ic)
+    #right_ica,_,_ = sklearn.decomposition.fastica(right_hemisphere_data,num_ic)
+    # load ICA from MATLAB check threshold = 2
+    ica_LH_dict = scipy.io.loadmat('ica_LH_test.mat')
+    left_ica = ica_LH_dict['ica_LH']
+    ica_RH_dict = scipy.io.loadmat('ica_RH_test.mat')
+    right_ica = ica_RH_dict['ica_RH']
+
     #flip signs (large tail on the right)
     #left_ica = np.multiply(left_ica,
     #                    np.tile(np.sign(np.sum(np.sign(np.multiply(left_ica, (np.abs(left_ica) > ICA_FUCKING_CONST).astype(float))), 1))
     #                        ,(1, left_ica.shape[1])))
     #right_ica = np.multiply(right_ica,
     #                    np.tile(np.sign(np.sum(np.sign(np.multiply(right_ica, (np.abs(right_ica) > ICA_FUCKING_CONST).astype(float))), 1))
-    #                        ,(1, right_ica.shape[1])))
-    thresh = (np.abs(left_ica) > ICA_FUCKING_CONST).astype(float)
+    #                        ,(1, right_ica.shape[1]))
+    thresh = (np.abs(left_ica) > threshold).astype(np.float64)
     ica_time_thresh = np.multiply(left_ica, thresh)
     end_res = np.sign(np.sum(np.sign(ica_time_thresh), 1))
     end_res_t = np.reshape(end_res, (num_ic, 1))
     tile_res = np.tile(end_res_t, (1, left_ica.shape[1]))
     left_ica = np.multiply(left_ica, tile_res)
 
-    thresh = (np.abs(right_ica) > ICA_FUCKING_CONST).astype(float)
+    thresh = (np.abs(right_ica) > threshold).astype(float)
     ica_time_thresh = np.multiply(right_ica, thresh)
     end_res = np.sign(np.sum(np.sign(ica_time_thresh), 1))
     end_res_t = np.reshape(end_res, (num_ic, 1))
     tile_res = np.tile(end_res_t, (1, right_ica.shape[1]))
     right_ica = np.multiply(right_ica, tile_res)
-
 
     #keep ICA components that have L/R symmetry
     #left-right DICE of cortical ICs to
@@ -61,15 +67,16 @@ def run_group_ica_separately(cifti_image,BM,threshold=ICA_FUCKING_CONST, num_ic=
     #2) select the ICs that are found in both hemispheres
     x = np.zeros([32492, left_ica.shape[0]])
     y = np.zeros([32492, right_ica.shape[0]])
-    np.put(x, BM[0].surface_indices, np.transpose(left_ica))
-    np.put(y, BM[1].surface_indices, np.transpose(right_ica))
+    x[np.ix_(list(BM[0].surface_indices), list(range(x.shape[1])))] = np.transpose(left_ica)
+    y[np.ix_(list(BM[1].surface_indices), list(range(y.shape[1])))] = np.transpose(right_ica)
+
     D = dice(x>threshold,y>threshold)
-    D_threshold = (D == np.tile(D.max(1), (D.shape[1],1))).astype(np.float32)
-    D_tmp = ((D*D_threshold) == np.tile(np.amax(D*D_threshold,axis=0),(D.shape[1],1)))
+    D_threshold = (D == np.transpose(np.matlib.repmat(np.amax(D,1),D.shape[1],1))).astype(np.float64)
+    D_tmp = ((D*D_threshold) == np.matlib.repmat(np.amax(D*D_threshold,axis=0),D.shape[1],1))
     D_threshold = D_tmp*D_threshold
 
     #TODO(Itay) just for tests, delete the next line:
-    D_threshold[np.ix_(list(range(0,36)),[0])] = np.ones((36,1))
+    #D_threshold[np.ix_(list(range(0,36)),[0])] = np.ones((36,1))
     #just for test, delete the prev line
 
     r = np.nonzero(np.sum(D_threshold,1))[0]
@@ -79,7 +86,9 @@ def run_group_ica_separately(cifti_image,BM,threshold=ICA_FUCKING_CONST, num_ic=
     x = np.zeros((N,len(r)))
     x[np.ix_(list(BM[0].data_indices),list(range(x.shape[1])))] = np.transpose(left_ica[r,:])
     x[np.ix_(list(BM[1].data_indices), list(range(len(c))))] = np.transpose(right_ica[c, :])
-    #x[np.ix_(list(BM[1].data_indices), [0, len(r) - 1])] = np.transpose(right_ica[c, :])
+
+    #scipy.io.savemat('ica_LR_MATCHED_test.mat', {'ica_LR_MATCHED_test': np.transpose(x)})
+
     return np.transpose(x)
 
 def cifti_extract_data(cifti_image,BM,side):
@@ -108,14 +117,17 @@ def dice(x,y):
         print('x and y incompatible (dice)')
     nx = x.shape[1]
     ny = y.shape[1]
-    xx = np.tile(np.sum(x,0),(ny,1))
-    yy = np.tile(np.sum(y,0), (nx,1))
+    #xx = np.tile(np.sum(x,0),(ny,1))
+    #yy = np.tile(np.sum(y,0), (nx,1))
+    xx = np.matlib.repmat(np.sum(x,0),ny,1)
+    yy = np.matlib.repmat(np.sum(y,0),nx,1)
+
     temp = np.dot(np.transpose(x.astype(np.float64)),y.astype(np.float64))
     res = 2 * np.divide(temp, xx+yy)
     return res
 
 
-def run_group_ica_together(cifti_image,BM, num_ic=50):
+def run_group_ica_together(cifti_image,BM,threshold=2, num_ic=50):
     # TODO num_ic, N, consts: figure out and rename.
     """Runs a group ICA for both hemispheres, to use as spatial filters.
     :param both_hemisphere_data:
@@ -125,7 +137,7 @@ def run_group_ica_together(cifti_image,BM, num_ic=50):
     both_hemisphere_data = cifti_extract_data(cifti_image,BM,'both')
     #np.transpose(both_hemisphere_data)
     both_ica,_,_ = sklearn.decomposition.fastica(both_hemisphere_data,num_ic)
-    thresh = (np.abs(both_ica) > ICA_FUCKING_CONST).astype(float)
+    thresh = (np.abs(both_ica) > threshold).astype(float)
     ica_time_thresh = np.multiply(both_ica, thresh)
     end_res = np.sign(np.sum(np.sign(ica_time_thresh), 1))
     end_res_t = np.reshape(end_res, (num_ic, 1))
@@ -133,8 +145,6 @@ def run_group_ica_together(cifti_image,BM, num_ic=50):
     both_ica = np.multiply(both_ica, tile_res)
 
     return np.transpose(both_ica)
-
-
 
 def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=91282):
     """Runs dual regression TODO(whoever) expand and elaborate.
@@ -152,10 +162,10 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
 
     G[BM[0].data_indices, :single_hemisphere_shape] = left_right_hemisphere_data[BM[0].data_indices, :]
     G[BM[1].data_indices, single_hemisphere_shape: 2 * single_hemisphere_shape] = left_right_hemisphere_data[
-                                                                                           BM[1].data_indices, :]
+                                                                                  BM[1].data_indices, :]
 
     hemis[BM[0].data_indices, :single_hemisphere_shape] = 1
-    hemis[BM[1].data_indices, single_hemisphere_shape : 2 * single_hemisphere_shape] = 1
+    hemis[BM[1].data_indices, single_hemisphere_shape: 2 * single_hemisphere_shape] = 1
 
     g_pseudo_inverse = np.linalg.pinv(G)
     for subject in subjects:
@@ -172,6 +182,7 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
         cifti_data = np.transpose(t) * hemis
         return cifti_data
 
+
 def get_subcortical_parcellation(cifti_image, brain_maps):
     """Get sub-cortical parcellation using atlas definitions and current data.
     :return: (no. voxel, cortical parcellation parts)
@@ -187,9 +198,7 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         :return: numpy array (no. voxels, 1), 1 if index is in part of the current part, 0 otherwise
         """
         ret = np.zeros([cifti_image.shape[1], 1])
-        start_index = current_map.index_offset
-        end_index = current_map.index_offset + current_map.index_count
-        ret[start_index:end_index] = 1
+        ret[current_map.data_indices] = 1
         return ret
 
     def corrcoef_and_spectral_ordering(mat):
@@ -213,11 +222,9 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         :return: numpy array (no. voxels , 2), each vector is a 0\1 vector representing the 2 clusters
         """
         res = np.zeros([cifti_image.shape[1], 2])
-        start_index = current_map.index_offset
-        end_index = current_map.index_offset + current_map.index_count
-        cifti_current_map_data = cifti_image[:, start_index:end_index]
+        cifti_current_map_data = cifti_image[:, current_map.data_indices]
         spatial_ordering = corrcoef_and_spectral_ordering(cifti_current_map_data)
-        res[start_index:end_index, :] = np.hstack((spatial_ordering > 0, spatial_ordering < 0)).astype(float)
+        res[current_map.data_indices, :] = np.hstack((spatial_ordering > 0, spatial_ordering < 0)).astype(float)
         return res
 
     def label_to_function(label):
@@ -245,30 +252,24 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         :param current_map:
         :return: numpy array (no. voxels , 3), each vector is a 0\1 vector representing the 3 clusters
         """
-        start_index = current_map.index_offset
-        end_index = current_map.index_offset + current_map.index_count
-        cifti_current_map_data = cifti_image[:, start_index:end_index]
+        cifti_current_map_data = cifti_image[:, current_map.data_indices]
         # todo(kess) this FastICA does not yield the same result as
-        ica_Y, _, _ = sklearn.decomposition.fastica(cifti_current_map_data, 3,)
-        # ica_Y = np.multiply(ica_Y,
-        #                     np.tile(np.reshape(
-        #                         np.sign(np.sum(np.sign(np.multiply(ica_Y, (np.abs(ica_Y) > ICA_FUCKING_CONST).astype(float))), 1)),
-        #                         (3, 1)), (1, ica_Y.shape[1])))
+        ica_y, _, _ = sklearn.decomposition.fastica(cifti_current_map_data, 3, )
 
-        thresh = (np.abs(ica_Y) > ICA_FUCKING_CONST).astype(float)
-        ica_time_thresh = np.multiply(ica_Y, thresh)
-        end_res = np.sign(np.sum(np.sign(ica_time_thresh),1))
-        end_res_t = np.reshape(end_res,(3,1))
-        tile_res = np.tile(end_res_t, (1, ica_Y.shape[1]))
-        ica_Y = np.multiply(ica_Y, tile_res)
+        thresh = np.asarray(np.abs(ica_y) > ICA_FUCKING_CONST, dtype=np.float32)
+        ica_time_thresh = ica_y * thresh
+        end_res = np.sign(np.sum(np.sign(ica_time_thresh), axis=1))
+        end_res_reshaped = np.reshape(end_res, (3, 1))
+        end_res_t = np.matlib.repmat(end_res_reshaped, 1, ica_y.shape[1])
+        ica_y = ica_y * end_res_t
 
-        res = np.zeros([cifti_image.shape[1], ica_Y.shape[0]])
-        res[start_index:end_index, :] = ica_Y.transpose()
+        res = np.zeros([cifti_image.shape[1], ica_y.shape[0]])
+        res[current_map.data_indices, :] = ica_y.transpose()
         return res
 
     sub_cortex_clusters = []
     for current_map in brain_maps:
-        x = label_to_function(current_map.brain_structure)(cifti_image, current_map)
+        x = label_to_function(current_map.brain_structure_name)(cifti_image, current_map)
         if x is not None:
             sub_cortex_clusters.append(x)
     return np.hstack(sub_cortex_clusters).transpose()
@@ -289,9 +290,9 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
     # TODO(loya) shapes must be validated.
     for subject in subjects:
         W = []
-        print ("SHAPES:",
-               "left_right_hemisphere_data:", subject.left_right_hemisphere_data.shape,
-               "semi_dense_connectome_data:", semi_dense_connectome_data.shape)
+        print("SHAPES:",
+              "left_right_hemisphere_data:", subject.left_right_hemisphere_data.shape,
+              "semi_dense_connectome_data:", semi_dense_connectome_data.shape)
         ROIS = np.concatenate([subject.left_right_hemisphere_data, semi_dense_connectome_data], axis=1)
         print("ROIS.shape:", ROIS.shape)
         for session in subject.sessions:
@@ -312,20 +313,28 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
     return subject_to_correlation_coefficient
 
 
-def extract_features(cifti, brain_maps, pca):
-    # TODO return end point subj_RFMRI_nosmoothing.dtseries.nii
+def extract_features(subjects, pca):
+    # TODO need to extract features from multiple subjects here.
+
+    # TODO some things might be repeatedly ask to calculate, like ica_LR_MATCHED ie. we might want provide it instead,
+    # TODO so that the featureExtroctor class in the prediction job is to calculate it before hand and save it.
     pass
 
 
 def get_spatial_filters(pca):
+    # TODO NEED to translate
     # %% Load spatial filters
     # % then threshold and do a winner-take-all
     # disp('Load Filters');
+    #  TODO this is actualy itay's code output (I think)!
     # filters = open_wbfile([outdir '/ica_both_lowdim.dtseries.nii']);
     # [m,wta]=max(filters.cdata,[],2);
+    # TODO again another fucking constants... We should probably check if we can use the FUCKING ICA CONSTANT also around here.
     # wta = wta .* (m>2.1);
+    # TODO I think this is winner takes it all. we can probably just use lists for this.
     # S = zeros(size(filters.cdata));
     # for i=1:size(filters.cdata,2)
     #     S(:,i) = double(wta==i);
     # end
+
     pass
