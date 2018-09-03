@@ -165,7 +165,6 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
             normalized_cifti = sklearn.preprocessing.scale(session.cifti, with_mean=False)
             deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti)))
             subject_data.append(deterended_data)
-        # TODO(loya) this is a potential bug. Stack? squeeze? concatenate? tile?
         subject_data = np.concatenate(subject_data, axis=1)
         T = g_pseudo_inverse @ subject_data
 
