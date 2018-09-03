@@ -328,7 +328,9 @@ def get_ica_result(pca_result):
     pass
 
 def get_spatial_filters(pca_result):
-    """Loads spatial filters, uses threshold and do winner-take-all"""
+    """Loads spatial filters, uses threshold and do winner-take-all
+    The returned matrix is an index matrix which is MATLAB compatible.
+    """
     filters = get_ica_result(pca_result)  # TODO(loya) replace when implemented
     print (filters)
     m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
