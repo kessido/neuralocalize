@@ -1,14 +1,16 @@
 """This code simulates the feature extraction part of the connectivity model.
 """
-
+import nibabel as nib
 import numpy as np
-import scipy
+import scipy.io
 import scipy.signal
 import scipy.io
 import sklearn
 from constants import ICA_FUCKING_CONST, dtype
 
+import iterative_pca
 import utils.utils as util
+import constants
 
 # TODO(loya) make sure and remove these two
 import numpy.matlib as matlib
@@ -35,15 +37,14 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     :param threshold:
     :return:
     """
-
     # TODO (Itay) cifti_image to left_hemisphere_data and right_hemisphere_data
     left_hemisphere_data = cifti_extract_data(cifti_image, BM, 'L')
     right_hemisphere_data = cifti_extract_data(cifti_image, BM, 'R')
-
-    left_ica = ica_with_threshold(left_hemisphere_data, num_ic, threshold)
+	
+	left_ica = ica_with_threshold(left_hemisphere_data, num_ic, threshold)
     right_ica = ica_with_threshold(right_hemisphere_data, num_ic, threshold)
-
-    # keep ICA components that have L/R symmetry
+	
+	# keep ICA components that have L/R symmetry
     # left-right DICE of cortical ICs to
     # 1) re-order the ICs
     # 2) select the ICs that are found in both hemispheres
@@ -51,8 +52,8 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     y = np.zeros([32492, right_ica.shape[0]])
     x[BM[0].surface_indices, :x.shape[1]] = left_ica.transpose()
     y[BM[1].surface_indices, :y.shape[1]] = right_ica.transpose()
-
-    threshold_2 = 0.00000029
+	
+	threshold_2 = 0.00000029
 
     D = dice(x > threshold_2, y > threshold_2)
     D_threshold = (D == np.transpose(np.matlib.repmat(np.amax(D, 1), D.shape[1], 1))).astype(dtype)
@@ -62,6 +63,7 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     r = np.nonzero(np.sum(D_threshold, 1))[0]
     c = D_threshold.argmax(1)
     c = c[r]
+
     x = np.zeros((N, len(r)))
     x[BM[0].data_indices, :x.shape[1]] = np.transpose(left_ica[r, :])
     x[BM[1].data_indices, :len(c)] = np.transpose(right_ica[c, :])
@@ -100,8 +102,7 @@ def dice(x, y):
         print('x and y incompatible (dice)')
     nx = x.shape[1]
     ny = y.shape[1]
-    # xx = np.tile(np.sum(x,0),(ny,1))
-    # yy = npS.tile(np.sum(y,0), (nx,1))
+
     xx = np.matlib.repmat(np.sum(x, 0), ny, 1).transpose()
     yy = np.matlib.repmat(np.sum(y, 0), nx, 1)
 
@@ -128,12 +129,13 @@ def run_group_ica_together(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_ic=
 def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=91282):
     """Runs dual regression TODO(whoever) expand and elaborate.
 
+    Updates the cifti image in every subject.
     :param left_right_hemisphere_data:
     :param subjects:
     :param size_of_g:
-    :return:
     """
-
+    print("run_dual_regression - input shape:", left_right_hemisphere_data.shape)
+    print("subject[0].session[0].cifti shape: (using transpose)", subjects[0].sessions[0].cifti.shape)
     single_hemisphere_shape = left_right_hemisphere_data.shape[1]
     print(single_hemisphere_shape)
     G = np.zeros([size_of_g, single_hemisphere_shape * 2])
@@ -151,16 +153,15 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
         subject_data = []
         print("NUM OF SESSIONS:", len(subject.sessions))
         for session in subject.sessions:
-            normalized_cifti = sklearn.preprocessing.scale(session.cifti, with_mean=False)
+            normalized_cifti = sklearn.preprocessing.scale(session.cifti.transpose(), with_mean=False)
             deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti)))
             subject_data.append(deterended_data)
-        # TODO(loya) this is a potential bug. Stack? squeeze? concatenate? tile?
         subject_data = np.concatenate(subject_data, axis=1)
         T = g_pseudo_inverse @ subject_data
 
         t = util.fsl_glm(np.transpose(T), np.transpose(subject_data))
-        cifti_data = np.transpose(t) * hemis
-        return cifti_data
+        subject.left_right_hemisphere_data = np.transpose(t) * hemis
+
 
 
 def get_subcortical_parcellation(cifti_image, brain_maps):
@@ -238,6 +239,7 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         ica_y, _, _ = sklearn.decomposition.fastica(cifti_current_map_data, 3, )
 
         thresh = np.asarray(np.abs(ica_y) > ICA_FUCKING_CONST, dtype=dtype)
+
         ica_time_thresh = ica_y * thresh
         end_res = np.sign(np.sum(np.sign(ica_time_thresh), axis=1))
         end_res_reshaped = np.reshape(end_res, (3, 1))
@@ -248,11 +250,13 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         res[current_map.data_indices, :] = ica_y.transpose()
         return res
 
+    print("get_subcortical_parcellation input:", cifti_image.shape)
     sub_cortex_clusters = []
     for current_map in brain_maps:
         x = label_to_function(current_map.brain_structure_name)(cifti_image, current_map)
         if x is not None:
             sub_cortex_clusters.append(x)
+    print("get_subcortical_parcellation output:", np.hstack(sub_cortex_clusters).transpose().shape)
     return np.hstack(sub_cortex_clusters).transpose()
 
 
@@ -267,6 +271,8 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
 
     :return: A dictionary from a subject to its correlation coeff.
     """
+    print("get_semi_dense_connectome - input shape:", semi_dense_connectome_data.shape)
+    print("subject[0].session[0].cifti shape: (using transpose)", subjects[0].sessions[0].cifti.shape)
     subject_to_correlation_coefficient = {}
     # TODO(loya) shapes must be validated.
     for subject in subjects:
@@ -277,7 +283,8 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         ROIS = np.concatenate([subject.left_right_hemisphere_data, semi_dense_connectome_data], axis=1)
         print("ROIS.shape:", ROIS.shape)
         for session in subject.sessions:
-            W.append(sklearn.preprocessing.scale(session.cifti))
+            # TODO(loya) this transpose was added as a patch, when fixed completely change back.
+            W.append(sklearn.preprocessing.scale(session.cifti).transpose())
         # TODO(loya) this might cause a bug.
         print("W[0].shape before concat:", W[0].shape)
         W = np.concatenate(W, axis=1)
@@ -294,28 +301,18 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
     return subject_to_correlation_coefficient
 
 
-def extract_features(subjects, pca):
-    # TODO need to extract features from multiple subjects here.
+def get_spatial_filters(filters):
+    """Gets the filters (a result of the ica on the pca result), uses threshold and do winner-take-all
+    The returned matrix is an index matrix which is MATLAB compatible.
+    """
+    m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
 
-    # TODO some things might be repeatedly ask to calculate, like ica_LR_MATCHED ie. we might want provide it instead,
-    # TODO so that the featureExtroctor class in the prediction job is to calculate it before hand and save it.
-    pass
+    # +1 for MATLAB compatibility
+    wta = np.argmax(filters, axis=1) + 1
+    wta = wta * (m > constants.SPATIAL_FILTERS_CONST)
 
-
-def get_spatial_filters(pca):
-    # TODO NEED to translate
-    # %% Load spatial filters
-    # % then threshold and do a winner-take-all
-    # disp('Load Filters');
-    #  TODO this is actualy itay's code output (I think)!
-    # filters = open_wbfile([outdir '/ica_both_lowdim.dtseries.nii']);
-    # [m,wta]=max(filters.cdata,[],2);
-    # TODO again another fucking constants... We should probably check if we can use the FUCKING ICA CONSTANT also around here.
-    # wta = wta .* (m>2.1);
-    # TODO I think this is winner takes it all. we can probably just use lists for this.
-    # S = zeros(size(filters.cdata));
-    # for i=1:size(filters.cdata,2)
-    #     S(:,i) = double(wta==i);
-    # end
-
-    pass
+    S = np.zeros_like(filters)
+    for i in range(filters.shape[1]):
+        # +1 for MATLAB compatibility
+        S[:, i] = (wta == i+1).astype(float)
+    return S

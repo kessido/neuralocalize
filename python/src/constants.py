@@ -6,3 +6,4 @@ filter_filename = 'ica_both_lowdim.dtseries.nii'
 model_filename = 'model.pcl.gzip'
 dtype = np.float32
 ICA_FUCKING_CONST = 0.0000001
+SPATIAL_FILTERS_CONST = 0.0000001
