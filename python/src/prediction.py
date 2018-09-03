@@ -29,7 +29,7 @@ class FeatureExtractor:
 
         _, self.default_brain_map = utils.cifti_utils.load_nii_brain_data_from_file(sample_file_path)
         self.ctx_indices, self.sub_ctx_indices = utils.cifti_utils.get_cortex_and_sub_cortex_indices(sample_file_path)
-        features = self.extract(subjects)
+        features = self.extract(subjects, False)
         features = np.asarray(features)
 
         # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
@@ -53,10 +53,11 @@ class FeatureExtractor:
             self.semi_dense_connectome_data = feature_extraction.get_subcortical_parcellation(pca_result, brain_map)
         return self.semi_dense_connectome_data
 
-    def extract(self, subjects):
+    def extract(self, subjects, with_scaling=True):
         """Extract the subject features.
 
         :param subjects: The subjects to extract their features [n_subjects, n_data].
+        :param with_scaling:
         :return: The subjects' features.
         """
         left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
@@ -71,8 +72,10 @@ class FeatureExtractor:
         semi_dense_connectome_result = feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
                                                                                     subjects)
         res = np.asarray(semi_dense_connectome_result)
-        return self._scale(res)
-
+        if with_scaling:
+            return self._scale(res)
+        else:
+            return res
 
 class Predictor:
     """A class containing all the localizer predictor model data.
