@@ -37,7 +37,7 @@ def abstract_test(method_to_test, nii_path):
     :param nii_path: The path holding the expected matlab matrix.
     """
     actual_output = method_to_test()  # TODO(loya) handle params if needed.
-    scipy.io.savemat('dual_regression.mat', {'dual_regression': np.transpose(actual_output)})
+    # scipy.io.savemat('dual_regression.mat', {'dual_regression': np.transpose(actual_output)})
     expected_output = get_matlab_matrix_as_numpy(nii_path)
 
     assert np.allclose(actual_output, expected_output)
@@ -84,7 +84,7 @@ def get_semi_dense_connectome_test():
 
     abstract_test(
         # TODO(loya) this is disgusting, please fix.
-        lambda: feature_extraction.get_semi_dense_connectome(sc_cifti_image.transpose(), subjects)[subjects[0]]
+        lambda: feature_extraction.get_semi_dense_connectome(sc_cifti_image.transpose(), subjects)
         , r'..\test_resources\100307_RFMRI_nosmoothing.dtseries.nii')
 
 

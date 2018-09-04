@@ -26,4 +26,19 @@ def dummy_test_feature_extraction_run():
     ])]
     prediction.FeatureExtractor(subjects, pca_result, r'..\resources\example.dtseries.nii')
 
+def dummy_test_localizer_run():
+    pca_result = load_nii_brain_data_from_file(
+        '../test_resources/GROUP_PCA_rand200_RFMRI.dtseries.nii')
+    subjects = [util.Subject(
+        'noam',
+        sessions_nii_paths=[
+        r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
+        r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
+        r'..\test_resources\rfMRI_REST2_LR\rfMRI_REST2_LR_Atlas_hp2000_clean.dtseries.nii',
+        r'..\test_resources\rfMRI_REST2_RL\rfMRI_REST2_RL_Atlas_hp2000_clean.dtseries.nii'
+    ])]
+
+    prediction.Localizer(subjects, pca_result=pca_result)
+
+# dummy_test_localizer_run()
 dummy_test_feature_extraction_run()
