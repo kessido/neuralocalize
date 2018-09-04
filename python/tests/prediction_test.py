@@ -1,10 +1,10 @@
 import numpy as np
-import nibabel as nib
-import utils.utils as util
-import utils.cifti_utils
-import pytest
-import prediction
+
+import constants
 import localize
+import prediction
+import utils.cifti_utils
+import utils.utils as util
 
 
 class Args():
@@ -14,18 +14,8 @@ class Args():
         self.task_ordered_subjects_filename = task_ordered_subjects_filename
 
 
-def load_nii_brain_data_from_file(nii_path):
-    """
-    Convert nii object into matlab matrix, and brain model meta data
-    :param nii_path: A path to a nii file
-    :return: numpy matrix containing the image data, brain models iterable
-    """
-    nib_data = nib.load(nii_path)
-    return np.array(nib_data.dataobj)
-
-
 def dummy_test_feature_extraction_run():
-    pca_result = load_nii_brain_data_from_file(
+    pca_result, _ = utils.cifti_utils.load_nii_brain_data_from_file(
         '../test_resources/GROUP_PCA_rand200_RFMRI.dtseries.nii')
     subjects = [util.Subject(
         'noam',
