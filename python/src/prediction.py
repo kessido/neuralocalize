@@ -6,7 +6,7 @@ import pickle
 from constants import dtype
 import numpy as np
 import sklearn.preprocessing
-
+import scipy.io
 import feature_extraction
 import iterative_pca
 import utils.cifti_utils
@@ -28,9 +28,10 @@ class FeatureExtractor:
         self.pca_result = pca_result
 
         _, self.default_brain_map = utils.cifti_utils.load_nii_brain_data_from_file(sample_file_path)
+
         self.ctx_indices, self.sub_ctx_indices = utils.cifti_utils.get_cortex_and_sub_cortex_indices(sample_file_path)
         features = self.extract(subjects, False)
-        features = np.asarray(features)
+        features = np.array(features)
 
         # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
         # self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.ctx_indices])
@@ -60,22 +61,30 @@ class FeatureExtractor:
         :param with_scaling:
         :return: The subjects' features.
         """
-        left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
-            self.pca_result, self.default_brain_map
-        )
-        left_right_hemisphere_data = left_right_hemisphere_data.transpose()
-        feature_extraction.run_dual_regression(left_right_hemisphere_data, self.default_brain_map, subjects)
-
+        # TODO(loya) return to this
+        # left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
+        #     self.pca_result, self.default_brain_map
+        # )
+        # left_right_hemisphere_data = left_right_hemisphere_data.transpose()
+        # feature_extraction.run_dual_regression(left_right_hemisphere_data, self.default_brain_map, subjects)
+        #
+        # scipy.io.savemat('dual_reg_result.mat',
+        #                  {'dual_reg_result': np.transpose(subjects[0].left_right_hemisphere_data)})
+        subjects[0].left_right_hemisphere_data = np.transpose(
+            scipy.io.loadmat('dual_reg_result.mat')['dual_reg_result'])
         semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data(self.pca_result,
                                                                                     self.default_brain_map)
         semi_dense_connectome_data = semi_dense_connectome_data.transpose()
-        semi_dense_connectome_result = feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
-                                                                                    subjects)
-        res = np.asarray(semi_dense_connectome_result)
+        feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
+                                                     subjects)
+        res = np.array([sub.correlation_coefficient for sub in subjects])
+        scipy.io.savemat('feature_ext_result.mat',
+                         {'feature_ext_result': np.transpose(res)})
         if with_scaling:
             return self._scale(res)
         else:
             return res
+
 
 class Predictor:
     """A class containing all the localizer predictor model data.
@@ -83,15 +92,15 @@ class Predictor:
         This allow injecting another model instead, as it uses fit(x,y) and predict(x).
     """
 
-    def __init__(self, pca):
+    def __init__(self, pca_result):
         """Init the predictor.
 
-        :param pca: The pca to extract the spatial filtering from.
+        :param pca_result: The pca to extract the spatial filtering from.
                         This is later user to group indexes by their connectivity ICA,
                         and combine them as their group only predictors.
         """
         self.beta = None
-        self.spatial_features = feature_extraction.get_spatial_filters(pca)
+        self.spatial_features = feature_extraction.get_spatial_filters(pca_result)
 
     def _get_beta(self, subject_feature, subject_task):
         """Get the prediction betas from psudo-inverse of ((beta @ [1 subject_features] = subject_task)).
@@ -146,12 +155,12 @@ class Localizer:
     """A class containing the localizer model data.
     """
 
-    def __init__(self, subjects, subjects_task=None, pca=None, predictor=None):
+    def __init__(self, subjects, subjects_task=None, pca_result=None, predictor=None):
         """Initialize a localizer object
 
         :param subjects: The subject to train on.
         :param subjects_task: The subject's task result to fit the model on.
-        :param pca: The pca to use for the features extraction and ICA filtering.
+        :param pca_result: The pca to use for the features extraction and ICA filtering.
                     If not provided, you must provide subjects to create the PCA from.
         :param feature_extractor: The feature extractor object to use.
                 Will be used to extract features from the
@@ -159,19 +168,21 @@ class Localizer:
                     If not provided, a default predictor will be created, and fitted to the subjects,
                     and the subjects' task results.
         """
-        if pca is None:
+        if pca_result is None and not subjects:
             raise ValueError("Cannot initialize a localizer if no pca and no subjects were provided, " +
                              "as it cannot generate a new PCA without subjects.")
-        pca = iterative_pca.iterative_pca(subjects)
 
-        self._feature_extractor = Localizer.FeatureExtractor(subjects, pca)
+        if pca_result is None:
+            pca_result = iterative_pca.iterative_pca(subjects)
+
+        self._feature_extractor = FeatureExtractor(subjects, pca_result)
         if predictor is None:
             if subjects_task is None:
                 raise ValueError(
                     'Cannot initialize a localizer if no predictor was provided, and no subjects and no '
                     'subject\'s_task were provided, as it cannot train a new predictor without subjects and '
                     'subjects\'s task results.')
-            predictor = Localizer.Predictor(pca)
+            predictor = Predictor(pca_result)
             predictor.fit(subjects, subjects_task)
         self._predictor = predictor
 
