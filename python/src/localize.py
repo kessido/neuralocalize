@@ -10,6 +10,7 @@ import sklearn
 import constants
 from constants import dtype
 import utils.utils
+import utils.cifti_utils
 # TODO(loya) add full description.
 from prediction import Localizer
 
@@ -39,7 +40,11 @@ PARSER.add_argument('--input_dir', default='./',
                     help='''The path to the input file(s).
                     In training mode, the input files should include subject rest data and task data in the
                     HCP format:
-                    base_dir | <subject_id> |
+                    The session files are in stored as follows:
+                    base_dir | {subject_id} | MNINonLinear | Results | rfMRI_REST{session_num}_{sides} |
+                    rfMRI_REST{session_id}_{sides}_Atlas_MSMAll_hp2000_clean.dtseries.nii
+                    The task files are stored as follows:
+                    base_dir | Tasks
                     In predict mode, only the rest files are required.
                     ''')  # TODO(loya) separate to rest and task, add format
 PARSER.add_argument('--output_dir', default='./results',
@@ -50,6 +55,12 @@ PARSER.add_argument('--output_dir', default='./results',
                     ''')  # Todo(loya) decide on output format for the files.
 PARSER.add_argument('--output_file', default=constants.model_filename,
                     help='For training mode. The file where the model will be written to. It is ')
+                    # TODO(loya) finish this sentence.
+PARSER.add_argument('--task_filename', default=constants.DEFAULT_TASK_FILENAME,
+                    help='Name of the task files. Stored in {base_dir}/Tasks')
+PARSER.add_argument('--task_ordered_subjects_filename', default=constants.DEFAULT_TASK_ORDERED_SUBJ_FILE,
+                    help='The path for the file holding a list of the subject ids in the order they appear in the task'
+                         ' matrices.')
 PARSER.add_argument('--model_file', default=constants.model_filename,
                     help='Required for predict mode. The file containing the trained localizer model is located.')
 PARSER.add_argument('--benchmark', action='store_true',
@@ -90,7 +101,8 @@ def load_subjects(args):
     :return: [n_subjects, n_data]
     """
     subjects = []
-    subject_folders = os.listdir(args.input_dir)
+    subj_dir = os.path.join(args.input_dir, 'Subjects')
+    subject_folders = os.listdir(subj_dir)
     for subj_folder in subject_folders:
         if subj_folder.isdigit():
             subj = utils.utils.Subject(name=subj_folder)
@@ -98,13 +110,32 @@ def load_subjects(args):
             subjects.append(subj)
     return subjects
 
-def load_subjects_task(args):
+
+def _get_ordered_subjects_list(path_to_file):
+    ret = {}
+    with open(path_to_file) as f:
+        subjs = f.readlines()
+        for i, subj in enumerate(subjs):
+            ret[subj.strip()] = i
+        return ret
+
+def load_subjects_task(args, subjects):
     """Load subjects' tasks results
 
     :param args:
     :return: [n_subjects, n_tasks_results]
     """
+    tasks_ordered_by_subj = []
+    full_path_to_tasks = os.path.join(args.input_dir, 'Tasks', args.task_filename)
+    full_path_to_ordered_subjs = os.path.join(args.input_dir, args.task_ordered_subjects_filename)
+    subj_index_dict = _get_ordered_subjects_list(full_path_to_ordered_subjs)
 
+    all_subjects_tasks, _ = utils.cifti_utils.load_nii_brain_data_from_file(full_path_to_tasks)
+
+    for subj in subjects:
+        # TODO(loya) this might need transpose:
+        tasks_ordered_by_subj.append(all_subjects_tasks[subj_index_dict[subj.name]])
+    return tasks_ordered_by_subj
 
 
 # todo(kess) add optiong to also include PCA
@@ -152,7 +183,7 @@ def main():
     if ARGS.train and not ARGS.predict:
         validate_train_args(ARGS)
         subjects = load_subjects(ARGS)
-        subjects_task = load_subjects_task(ARGS)
+        subjects_task = load_subjects_task(ARGS, subjects)
 
         if ARGS.benchmark:
             mean, std, raw = benchmark(subjects, subjects_task, ARGS)

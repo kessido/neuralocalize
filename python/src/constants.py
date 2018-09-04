@@ -13,3 +13,5 @@ SESSION_IDS = [('1', 'LR'), ('1', 'RL'), ('2', 'LR'), ('2', 'RL')]
 PATH_TO_SESSIONS = "MNINonlinear/Results"
 SESSION_NAME_TEMPLATE = "rfMRI_REST%s_%s/rfMRI_REST%s_%s_Atlas_hp2000_clean.dtseries.nii"
 SESSION_DIRS = [SESSION_NAME_TEMPLATE % (num, side, num, side) for num, side in SESSION_IDS]
+DEFAULT_TASK_FILENAME = ''
+DEFAULT_TASK_ORDERED_SUBJ_FILE = ''
