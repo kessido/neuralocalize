@@ -1,6 +1,7 @@
 *.idea*
 *.nii
 *.mat*
+*.pcl*
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
