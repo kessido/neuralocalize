@@ -35,7 +35,7 @@ def load_nii_brain_data_from_file(nii_path):
 
 def get_cortex_and_sub_cortex_indices(sample_file_path='./example.dtseries.nii'):
     _, brain_maps = load_nii_brain_data_from_file(sample_file_path)
-    ctx_inds = itertools.chain(
-        brain_maps[0].data_indices, brain_maps[1].data_indices)
+    ctx_inds = list(itertools.chain(
+    brain_maps[0].data_indices, brain_maps[1].data_indices))
     sub_ctx_inds = utils.utils.remove_elements_from_list(range(91282), ctx_inds)
-    return ctx_inds, sub_ctx_inds
+    return np.array(ctx_inds), np.array(sub_ctx_inds)
