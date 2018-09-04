@@ -5,8 +5,8 @@ import os
 import pickle
 
 import numpy as np
-import sklearn.model_selection
-
+# import sklearn.model_selection
+import sklearn
 import constants
 from constants import dtype
 import utils.utils
@@ -38,8 +38,8 @@ PARSER.add_argument('--predict', action='store_true', )
 PARSER.add_argument('--input_dir', default='./',
                     help='''The path to the input file(s).
                     In training mode, the input files should include subject rest data and task data in the
-                    following format:
-                    <TODO(loya) format>.
+                    HCP format:
+                    base_dir | <subject_id> |
                     In predict mode, only the rest files are required.
                     ''')  # TODO(loya) separate to rest and task, add format
 PARSER.add_argument('--output_dir', default='./results',
@@ -89,8 +89,14 @@ def load_subjects(args):
     :param args:
     :return: [n_subjects, n_data]
     """
-    pass  # todo(loya) load subjects by folder structures.
-
+    subjects = []
+    subject_folders = os.listdir(args.input_dir)
+    for subj_folder in subject_folders:
+        if subj_folder.isdigit():
+            subj = utils.utils.Subject(name=subj_folder)
+            subj.load_from_directory(os.path.join(args.input_dir, subj_folder, constants.PATH_TO_SESSIONS))
+            subjects.append(subj)
+    return subjects
 
 def load_subjects_task(args):
     """Load subjects' tasks results
@@ -98,7 +104,7 @@ def load_subjects_task(args):
     :param args:
     :return: [n_subjects, n_tasks_results]
     """
-    pass  # todo(loya) load subjects task by folder structures.
+
 
 
 # todo(kess) add optiong to also include PCA

@@ -40,5 +40,5 @@ def dummy_test_localizer_run():
 
     prediction.Localizer(subjects, pca_result=pca_result)
 
-# dummy_test_localizer_run()
-dummy_test_feature_extraction_run()
+dummy_test_localizer_run()
+# dummy_test_feature_extraction_run()
