@@ -40,11 +40,11 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     # TODO (Itay) cifti_image to left_hemisphere_data and right_hemisphere_data
     left_hemisphere_data = cifti_extract_data(cifti_image, BM, 'L')
     right_hemisphere_data = cifti_extract_data(cifti_image, BM, 'R')
-	
-	left_ica = ica_with_threshold(left_hemisphere_data, num_ic, threshold)
+    
+    left_ica = ica_with_threshold(left_hemisphere_data, num_ic, threshold)
     right_ica = ica_with_threshold(right_hemisphere_data, num_ic, threshold)
-	
-	# keep ICA components that have L/R symmetry
+    
+    # keep ICA components that have L/R symmetry
     # left-right DICE of cortical ICs to
     # 1) re-order the ICs
     # 2) select the ICs that are found in both hemispheres
@@ -52,8 +52,8 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     y = np.zeros([32492, right_ica.shape[0]])
     x[BM[0].surface_indices, :x.shape[1]] = left_ica.transpose()
     y[BM[1].surface_indices, :y.shape[1]] = right_ica.transpose()
-	
-	threshold_2 = 0.00000029
+    
+    threshold_2 = 0.00000029
 
     D = dice(x > threshold_2, y > threshold_2)
     D_threshold = (D == np.transpose(np.matlib.repmat(np.amax(D, 1), D.shape[1], 1))).astype(dtype)
