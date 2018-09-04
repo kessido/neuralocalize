@@ -297,9 +297,7 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         # CORRELATION COEFFICIENT
         F = sklearn.preprocessing.normalize(T, axis=1) @ np.transpose(sklearn.preprocessing.normalize(W, axis=0))
         print("F.shape:", F.shape)
-        subject_to_correlation_coefficient[subject] = F
-    return subject_to_correlation_coefficient
-
+        subject.correlation_coefficient = F
 
 def get_spatial_filters(filters):
     """Gets the filters (a result of the ica on the pca result), uses threshold and do winner-take-all
