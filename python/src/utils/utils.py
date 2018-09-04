@@ -1,3 +1,4 @@
+import constants
 import os
 
 import numpy as np
@@ -95,7 +96,7 @@ class Subject(object):
         else:
             self.left_right_hemisphere_data = None
 
-    def load_from_directory(self, path, left_right_hemisphere_data_suffix):
+    def load_from_directory(self, base_session_dir):
         """Loads all subject and sessions files from directory.
 
         Assuming sessions are ordered by filename, and the LRH data has a specific subject.
@@ -104,11 +105,10 @@ class Subject(object):
         :param left_right_hemisphere_data_suffix:
         :return:
         """
-        ordered_files = os.listdir(path).sort()
-        for file in ordered_files:
-            full_path = os.path.join(path, file)
-            if file.endswith(left_right_hemisphere_data_suffix):
-                self.left_right_hemisphere_data, _ = utils.cifti_utils.load_nii_brain_data_from_file(full_path)
-                self.left_right_hemisphere_data = self.left_right_hemisphere_data.transpose()
-            else:
-                self.sessions.append(Session(full_path))
+        for session_dir in constants.SESSION_DIRS:
+            path_to_session = os.path.join(base_session_dir, session_dir)
+            self.sessions.append(Session(path_to_session))
+
+
+def flatten_features_for_scale(x):
+    return x.reshape((x.shape[0], x.shape[1] * x.shape[2]))
