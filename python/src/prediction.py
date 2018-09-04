@@ -223,7 +223,11 @@ class Localizer:
         :return: The task result prediction.
         """
         features = self._feature_extractor.extract(subject)
-        return self._predictor.predict(features)
+        res = self._predictor.predict(features)
+        path_to_save = '../test_resources/'+subject.name+'.dtseries.nii'
+        utils.save_cifti(res,path_to_save)
+        print('Saved cifti file of prediction for subject'+subject.name+'in: '+path_to_save)
+        return res
 
     def save_to_file(self, file_path):
         """Save localizer to file.

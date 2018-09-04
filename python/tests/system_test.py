@@ -2,7 +2,7 @@ import pytest
 import nibabel as nib
 import numpy as np
 import scipy.io
-from utils.cifti_utils import load_nii_brain_data_from_file, BrainMap
+from utils.cifti_utils import load_nii_brain_data_from_file, BrainMap, save_cifti
 import feature_extraction as feature_extraction
 from utils.utils import Subject
 

@@ -39,3 +39,21 @@ def get_cortex_and_sub_cortex_indices(sample_file_path='./example.dtseries.nii')
     brain_maps[0].data_indices, brain_maps[1].data_indices))
     sub_ctx_inds = utils.utils.remove_elements_from_list(range(91282), ctx_inds)
     return np.array(ctx_inds), np.array(sub_ctx_inds)
+
+
+def save_cifti(cifti_img, path,series=None, brain_maps=None,sample_file_path='../resources/example.dtseries.nii'):
+    """
+
+    :param cifti_img: [n_component, 91282]
+    :param path:
+    :param sample_file_path:
+    :return:
+    """
+    import cifti
+    _, axis = cifti.read(sample_file_path)
+    # todo(kessi, itay) need to fit the time series to the actual time series.
+    if series is None:
+        series = cifti.Series(start=0.0, step=0.72, size=cifti_img.shape[0])
+    if brain_maps is None:
+        brain_maps = axis[1]
+    cifti.write(path, cifti_img, (series, brain_maps))
