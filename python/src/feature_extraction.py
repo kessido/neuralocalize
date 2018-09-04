@@ -37,6 +37,7 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     :param threshold:
     :return:
     """
+    print("Running Group ICA on each hemisphere separately.")
     # TODO (Itay) cifti_image to left_hemisphere_data and right_hemisphere_data
     left_hemisphere_data = cifti_extract_data(cifti_image, BM, 'L')
     right_hemisphere_data = cifti_extract_data(cifti_image, BM, 'R')
@@ -121,6 +122,7 @@ def run_group_ica_together(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_ic=
     :param num_ic:
     :return:
     """
+    print("Running Group ICA on both hemispheres.")
     both_hemisphere_data = cifti_extract_data(cifti_image, BM, 'both')
     both_ica = ica_with_threshold(both_hemisphere_data, num_ic, threshold)
     return both_ica.transpose()
@@ -134,10 +136,8 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
     :param subjects:
     :param size_of_g:
     """
-    print("run_dual_regression - input shape:", left_right_hemisphere_data.shape)
-    print("subject[0].session[0].cifti shape: (using transpose)", subjects[0].sessions[0].cifti.shape)
+    print("Running Dual Regression.")
     single_hemisphere_shape = left_right_hemisphere_data.shape[1]
-    print(single_hemisphere_shape)
     G = np.zeros([size_of_g, single_hemisphere_shape * 2])
     hemis = np.zeros([size_of_g, single_hemisphere_shape * 2])
 
@@ -151,7 +151,6 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
     g_pseudo_inverse = np.linalg.pinv(G)
     for subject in subjects:
         subject_data = []
-        print("NUM OF SESSIONS:", len(subject.sessions))
         for session in subject.sessions:
             normalized_cifti = sklearn.preprocessing.scale(session.cifti.transpose(), with_mean=False)
             deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti)))
@@ -249,13 +248,12 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         res[current_map.data_indices, :] = ica_y.transpose()
         return res
 
-    print("get_subcortical_parcellation input:", cifti_image.shape)
+    print("Getting Subcortical parcellation.")
     sub_cortex_clusters = []
     for current_map in brain_maps:
         x = label_to_function(current_map.brain_structure_name)(cifti_image, current_map)
         if x is not None:
             sub_cortex_clusters.append(x)
-    print("get_subcortical_parcellation output:", np.hstack(sub_cortex_clusters).transpose().shape)
     return np.hstack(sub_cortex_clusters).transpose()
 
 
@@ -270,32 +268,19 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
 
     :return: A dictionary from a subject to its correlation coeff.
     """
-    print("get_semi_dense_connectome - input shape:", semi_dense_connectome_data.shape)
-    print("subject[0].session[0].cifti shape: (using transpose)", subjects[0].sessions[0].cifti.shape)
-    subject_to_correlation_coefficient = {}
-    # TODO(loya) shapes must be validated.
+    print("Running Get Semi-Dense Connectome")
     for subject in subjects:
         W = []
-        print("SHAPES:",
-              "left_right_hemisphere_data:", subject.left_right_hemisphere_data.shape,
-              "semi_dense_connectome_data:", semi_dense_connectome_data.shape)
         ROIS = np.concatenate([subject.left_right_hemisphere_data, semi_dense_connectome_data], axis=1)
-        print("ROIS.shape:", ROIS.shape)
         for session in subject.sessions:
             # TODO(loya) this transpose was added as a patch, when fixed completely change back.
             W.append(sklearn.preprocessing.scale(session.cifti).transpose())
         # TODO(loya) this might cause a bug.
-        print("W[0].shape before concat:", W[0].shape)
         W = np.concatenate(W, axis=1)
-        print("W SHAPE AFTER CONCAT:", W.shape)
         # MULTIPLE REGRESSION
-        # TODO(loya) there was a transpose here that caused a bug. removed because for now, might be a problem.
-        print("ROIS pinv shape:", np.linalg.pinv(ROIS).shape)
         T = np.linalg.pinv(ROIS) @ W
-        print("T shape:", T.shape)
         # CORRELATION COEFFICIENT
         F = sklearn.preprocessing.normalize(T, axis=1) @ np.transpose(sklearn.preprocessing.normalize(W, axis=0))
-        print("F.shape:", F.shape)
         subject.correlation_coefficient = F
 
 
@@ -303,6 +288,7 @@ def get_spatial_filters(pca_result, brain_maps):
     """Gets the filters (a result of the ica on the pca result), uses threshold and do winner-take-all
     The returned matrix is an index matrix which is MATLAB compatible.
     """
+    print("Getting Spatial Filters.")
     filters = run_group_ica_together(pca_result, brain_maps)
     m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
 

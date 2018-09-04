@@ -18,7 +18,9 @@ class FeatureExtractor:
     """
 
     # todo add option to create the pca results.
-    def __init__(self, subjects, pca_result=None, sample_file_path='../resources/example.dtseries.nii'):
+    def __init__(self, subjects, pca_result=None, sample_file_path='../resources/example.dtseries.nii',
+                 load_feature_extraction=False,
+                 feature_extraction_path=''):
         """ Init the Feature Extractor from subjects and pca.
         Create a scaling factor of the cortical and sub cortical parts.
 
@@ -36,13 +38,13 @@ class FeatureExtractor:
 
         self.ctx_indices, self.sub_ctx_indices = utils.cifti_utils.get_cortex_and_sub_cortex_indices(sample_file_path)
         # [subjects x features (tasks x brain)]
-        features = self.extract(subjects, False)
+        print("Extracting features.")
+        features = self.extract(subjects, False, load_feature_extraction,
+                                feature_extraction_path)
         features = np.array(features)
 
         # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
         # self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.ctx_indices])
-        print("ctx shape:", self.ctx_indices.shape, "features shape:", features.shape)
-
         flattened_ctx_features = utils.utils.flatten_features_for_scale(features[:, self.ctx_indices])
         flattened_sub_ctx_features = utils.utils.flatten_features_for_scale(features[:, self.sub_ctx_indices])
 
@@ -81,34 +83,38 @@ class FeatureExtractor:
             self.semi_dense_connectome_data = feature_extraction.get_subcortical_parcellation(pca_result, brain_map)
         return self.semi_dense_connectome_data
 
-    def extract(self, subjects, with_scaling=True):
+    def extract(self, subjects, with_scaling=True, load_feature_extraction=False,
+                feature_extraction_path=''):
         """Extract the subject features.
 
         :param subjects: The subjects to extract their features [n_subjects, n_data].
         :param with_scaling:
         :return: The subjects' features.
         """
-        # # TODO(loya) return to this
-        left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
-            self.pca_result, self.default_brain_map
-        )
-        left_right_hemisphere_data = left_right_hemisphere_data.transpose()
-        feature_extraction.run_dual_regression(left_right_hemisphere_data, self.default_brain_map, subjects)
+        if load_feature_extraction:
+            res = np.transpose(
+                scipy.io.loadmat(feature_extraction_path)['feature_ext_result'])
+        else:
+            # # TODO(loya) return to this
+            left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
+                self.pca_result, self.default_brain_map
+            )
+            left_right_hemisphere_data = left_right_hemisphere_data.transpose()
+            feature_extraction.run_dual_regression(left_right_hemisphere_data, self.default_brain_map, subjects)
 
-        # scipy.io.savemat('dual_reg_result.mat',
-        #                  {'dual_reg_result': np.transpose(subjects[0].left_right_hemisphere_data)})
-        # subjects[0].left_right_hemisphere_data = np.transpose(
-        #     scipy.io.loadmat('dual_reg_result.mat')['dual_reg_result'])
-        semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data(self.pca_result,
-                                                                                    self.default_brain_map)
-        semi_dense_connectome_data = semi_dense_connectome_data.transpose()
-        feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
-                                                     subjects)
-        res = np.array([sub.correlation_coefficient.transpose() for sub in subjects])
-        # scipy.io.savemat('feature_ext_result.mat',
-        #                  {'feature_ext_result': np.transpose(res)})
-        # res = np.transpose(
-        #     scipy.io.loadmat('feature_ext_result.mat')['feature_ext_result'])
+            # scipy.io.savemat('dual_reg_result.mat',
+            #                  {'dual_reg_result': np.transpose(subjects[0].left_right_hemisphere_data)})
+            # subjects[0].left_right_hemisphere_data = np.transpose(
+            #     scipy.io.loadmat('dual_reg_result.mat')['dual_reg_result'])
+            semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data(self.pca_result,
+                                                                                        self.default_brain_map)
+            semi_dense_connectome_data = semi_dense_connectome_data.transpose()
+            feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
+                                                         subjects)
+            res = np.array([sub.correlation_coefficient.transpose() for sub in subjects])
+            # scipy.io.savemat('feature_ext_result.mat',
+            #                  {'feature_ext_result': np.transpose(res)})
+
         if with_scaling:
             res = self._scale(res)
         for subject, feature in zip(subjects, res):
@@ -131,8 +137,7 @@ class Predictor:
         """
         self.betas = None
         self.spatial_features = feature_extraction.get_spatial_filters(pca_result, brain_maps)
-        print('self.spatial_features',self.spatial_features)
-        print('self.spatial_features.shape',self.spatial_features.shape)
+
     def _get_beta(self, subject_features, subject_task):
         """Get the prediction betas from psudo-inverse of ((beta @ [1 subject_features] = subject_task)).
 
@@ -165,26 +170,18 @@ class Predictor:
         for subject_feature, task in zip(subjects_feature, subjects_task):
             betas.append(self._get_beta(subject_feature, task))
         betas = np.array(betas, dtype=np.float32)
-        print("betas:", betas)
-        print("betas.shape:", betas.shape)
-        print("betas[0].shape:", betas[0].shape)
         self.betas = betas
 
     def _predict(self, subject_features):
         res = np.zeros(self.spatial_features.shape[0])
-        print("self.spatial_features.shape[0]", self.spatial_features.shape[0])
-        betas_after_transpose = self.betas.transpose([1,2,0])
-        print('betas_after_transpose.shape',betas_after_transpose.shape)
+        betas_after_transpose = self.betas.transpose([1, 2, 0])
         for j in range(self.spatial_features.shape[1]):
             ind = self.spatial_features[:, j] > 0
             if np.any(ind):
                 demeaned_features = sklearn.preprocessing.scale(subject_features[ind], with_std=False)
                 x = utils.utils.add_ones_column_to_matrix(demeaned_features)
                 current_betas = betas_after_transpose[:, j, :]
-                print('current_betas.shape',current_betas.shape )
-                print('np.mean(current_betas, axis=2).shape',np.mean(current_betas, axis=1).shape)
                 res[ind] = x @ np.mean(current_betas, axis=1)
-                print('res[ind].shape',res[ind].shape)
         return res
 
     def predict(self, subjects_features):
@@ -197,7 +194,6 @@ class Predictor:
         """
         if self.betas is None:
             raise BrokenPipeError("Cannot predict before the model was trained!")
-        print("beta.shape:", self.betas.shape)
         return np.array([self._predict(subject_features) for subject_features in subjects_features])
 
 
@@ -205,7 +201,9 @@ class Localizer:
     """A class containing the localizer model data.
     """
 
-    def __init__(self, subjects, subjects_task=None, pca_result=None, predictor=None):
+    def __init__(self, subjects, subjects_task=None, pca_result=None, predictor=None,
+                 load_feature_extraction=False,
+                 feature_extraction_path=''):
         """Initialize a localizer object
 
         :param subjects: The subject to train on.
@@ -225,7 +223,9 @@ class Localizer:
         if pca_result is None:
             pca_result = iterative_pca.iterative_pca(subjects)
 
-        self._feature_extractor = FeatureExtractor(subjects, pca_result)
+        self._feature_extractor = FeatureExtractor(subjects, pca_result,
+                                                   load_feature_extraction=load_feature_extraction,
+                                                   feature_extraction_path=feature_extraction_path)
 
         if predictor is None:
             if subjects_task is None:
@@ -235,6 +235,7 @@ class Localizer:
                     'subjects\'s task results.')
             predictor = Predictor(pca_result, self._feature_extractor.default_brain_map)
             subjects_features = [subject.features for subject in subjects]
+            print("Fitting predictor")
             predictor.fit(subjects_features, subjects_task)
         self._predictor = predictor
 
