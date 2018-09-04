@@ -80,26 +80,26 @@ class FeatureExtractor:
         :return: The subjects' features.
         """
         # TODO(loya) return to this
-        # left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
-        #     self.pca_result, self.default_brain_map
-        # )
-        # left_right_hemisphere_data = left_right_hemisphere_data.transpose()
-        # feature_extraction.run_dual_regression(left_right_hemisphere_data, self.default_brain_map, subjects)
-        #
+        left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
+            self.pca_result, self.default_brain_map
+        )
+        left_right_hemisphere_data = left_right_hemisphere_data.transpose()
+        feature_extraction.run_dual_regression(left_right_hemisphere_data, self.default_brain_map, subjects)
+
         # scipy.io.savemat('dual_reg_result.mat',
         #                  {'dual_reg_result': np.transpose(subjects[0].left_right_hemisphere_data)})
         # subjects[0].left_right_hemisphere_data = np.transpose(
         #     scipy.io.loadmat('dual_reg_result.mat')['dual_reg_result'])
-        # semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data(self.pca_result,
-        #                                                                             self.default_brain_map)
-        # semi_dense_connectome_data = semi_dense_connectome_data.transpose()
-        # feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
-        #                                              subjects)
-        # res = np.array([sub.correlation_coefficient.transpose() for sub in subjects])
+        semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data(self.pca_result,
+                                                                                    self.default_brain_map)
+        semi_dense_connectome_data = semi_dense_connectome_data.transpose()
+        feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
+                                                     subjects)
+        res = np.array([sub.correlation_coefficient.transpose() for sub in subjects])
         # scipy.io.savemat('feature_ext_result.mat',
         #                  {'feature_ext_result': np.transpose(res)})
-        res = np.transpose(
-            scipy.io.loadmat('feature_ext_result.mat')['feature_ext_result'])
+        # res = np.transpose(
+        #     scipy.io.loadmat('feature_ext_result.mat')['feature_ext_result'])
         if with_scaling:
             return self._scale(res)
         else:
