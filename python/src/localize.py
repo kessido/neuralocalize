@@ -42,15 +42,15 @@ PARSER.add_argument('--input_dir', default='./',
                     <TODO(loya) format>.
                     In predict mode, only the rest files are required.
                     ''')  # TODO(loya) separate to rest and task, add format
-PARSER.add_argument('--output_dir', default=f'./results',
+PARSER.add_argument('--output_dir', default='./results',
                     help='''Required for prediction mode. The output folder to use for outputting the predictions.
                     The output will later be saved in the following way:
                     output_dir/
                         {subject}_result.pcl
                     ''')  # Todo(loya) decide on output format for the files.
-PARSER.add_argument('--output_file', default=f'./{constants.model_filename}',
+PARSER.add_argument('--output_file', default=constants.model_filename,
                     help='For training mode. The file where the model will be written to. It is ')
-PARSER.add_argument('--model_file', default=f'./{constants.model_filename}',
+PARSER.add_argument('--model_file', default=constants.model_filename,
                     help='Required for predict mode. The file containing the trained localizer model is located.')
 PARSER.add_argument('--benchmark', action='store_true',
                     help='''For training mode. If presented, a Leave One Out testing method will be used, where the 
@@ -150,10 +150,10 @@ def main():
 
         if ARGS.benchmark:
             mean, std, raw = benchmark(subjects, subjects_task, ARGS)
-            print(f"Benchmark Results:")
-            print(f"Mean: {mean}")
-            print(f"STD: {std}")
-            print(f"Raw data: {raw}")
+            print("Benchmark Results:")
+            print("Mean:", mean)
+            print("STD:", std)
+            print("Raw data:", raw)
 
         train_model(subjects, subjects_task, ARGS).save_to_file(ARGS.output_file)
 
@@ -164,7 +164,7 @@ def main():
         predictions = localizer.predict(subjects)
         utils.utils.create_dir(ARGS.output_dir)
         for subject, prediction in zip(subjects, predictions):
-            subject_result_file = os.path.join(ARGS.output_dir, f'{subject.name}_result.pcl')
+            subject_result_file = os.path.join(ARGS.output_dir, subject.name + 'result.pcl')
             pickle.dump(open(subject_result_file, 'wb'), prediction)
     else:
         PARSER.print_help()
