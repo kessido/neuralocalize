@@ -35,7 +35,7 @@ PARSER.add_argument('--train', action='store_true',
                     Given training data (subject rest and task), trains a model and outputs it into the output directory.
                     Requires output_dir, and input_dir with training data files in the following format:
                     ''')  # TODO(loya) decide on a format.
-PARSER.add_argument('--predict', action='store_true', )
+PARSER.add_argument('--predict', action='store_true', help='Predict mode')
 PARSER.add_argument('--input_dir', default='./',
                     help='''The path to the input file(s).
                     In training mode, the input files should include subject rest data and task data in the
@@ -53,9 +53,17 @@ PARSER.add_argument('--output_dir', default='./results',
                     output_dir/
                         {subject}_result.pcl
                     ''')  # Todo(loya) decide on output format for the files.
-PARSER.add_argument('--output_file', default=constants.model_filename,
-                    help='For training mode. The file where the model will be written to. It is ')
-                    # TODO(loya) finish this sentence.
+PARSER.add_argument('--output_filename', default='model.pcl',
+                    help='The name to save the output model.')
+PARSER.add_argument('--run_with_pca', action='store_true',
+                    help='Defaults to False. Set to True if you want to run with PCA, otherwise loads the result.')
+PARSER.add_argument('--pca_result', default='../test_resources/GROUP_PCA_rand200_RFMRI.dtseries.nii',
+                    help='Optional. Load iterative PCA result from this location.')
+PARSER.add_argument('--load_feature_extraction', action='store_true',
+                    help='Defaults to False. Set to True if you want to run with feature extraction,'
+                         ' otherwise loads the result.')
+PARSER.add_argument('--feature_extraction_result', default='../test_resources/feature_ext_result.mat',
+                    help='Optional. Load iterative PCA result from this location.')
 PARSER.add_argument('--task_filename', default=constants.DEFAULT_TASK_FILENAME,
                     help='Name of the task files. Stored in {base_dir}/Tasks')
 PARSER.add_argument('--task_ordered_subjects_filename', default=constants.DEFAULT_TASK_ORDERED_SUBJ_FILE,
@@ -90,9 +98,6 @@ def validate_train_args(args):
     if not os.path.exists(args.input_dir):
         raise ValueError("Input file doesn't exist.")
 
-    if os.path.exists(args.output_file):
-        raise ValueError("Output file already exist. Please delete it first, or change the output file.")
-
 
 def load_subjects(args):
     """Load subjects
@@ -105,7 +110,7 @@ def load_subjects(args):
     subject_folders = os.listdir(subj_dir)
     for subj_folder in subject_folders:
         subj = utils.utils.Subject(name=subj_folder)
-        subj.load_from_directory(os.path.join(args.input_dir, subj_folder, constants.PATH_TO_SESSIONS))
+        subj.load_from_directory(os.path.join(subj_dir, subj_folder, constants.PATH_TO_SESSIONS))
         subjects.append(subj)
     return subjects
 
@@ -117,6 +122,7 @@ def _get_ordered_subjects_list(path_to_file):
         for i, subj in enumerate(subjs):
             ret[subj.strip()] = i
         return ret
+
 
 def load_subjects_task(args, subjects):
     """Load subjects' tasks results
@@ -138,7 +144,7 @@ def load_subjects_task(args, subjects):
 
 
 # todo(kess) add optiong to also include PCA
-def train_model(subjects, subjects_task, args):
+def train_model(subjects, subjects_task, args, pca_result):
     """Train a localizer model
 
     :param subjects: The subjects to train on.
@@ -147,7 +153,9 @@ def train_model(subjects, subjects_task, args):
     :return: A localizer model
     """
     # todo(kess) this is where you change the model type.
-    return Localizer(subjects, subjects_task)
+    return Localizer(subjects, subjects_task, pca_result=pca_result,
+                     load_feature_extraction=args.load_feature_extraction,
+                     feature_extraction_path=args.feature_extraction_result)
 
 
 def get_benchmark(localizer, subjects, subjects_task):
@@ -161,7 +169,7 @@ def get_benchmark(localizer, subjects, subjects_task):
     """
     predictions = localizer.predict(subjects)
     return (sum(map(lambda subject_task, prediction: np.linalg.norm(subject_task - prediction),
-                         zip(subjects_task, predictions)))).astype(dtype) / len(subjects)
+                    zip(subjects_task, predictions)))).astype(dtype) / len(subjects)
 
 
 def benchmark(subjects, subjects_task, args):
@@ -181,17 +189,28 @@ def benchmark(subjects, subjects_task, args):
 def main():
     if ARGS.train and not ARGS.predict:
         validate_train_args(ARGS)
+        print("Loading subjects and tasks.")
         subjects = load_subjects(ARGS)
         subjects_task = load_subjects_task(ARGS, subjects)
 
         if ARGS.benchmark:
+            if len(subjects) <= 1:
+                raise ValueError("Not enough subjects to preform leave-one-out.")
             mean, std, raw = benchmark(subjects, subjects_task, ARGS)
             print("Benchmark Results:")
             print("Mean:", mean)
             print("STD:", std)
             print("Raw data:", raw)
 
-        train_model(subjects, subjects_task, ARGS).save_to_file(ARGS.output_file)
+        output_path = os.path.join(ARGS.output_dir, ARGS.output_filename)
+        print("Training Model.")
+        if ARGS.run_with_pca:
+            train_model(subjects, subjects_task, ARGS).save_to_file(output_path)
+        else:
+            pca_result_path = os.path.join(ARGS.input_dir, ARGS.pca_result)
+            pca_result, _ = utils.cifti_utils.load_nii_brain_data_from_file(pca_result_path)
+            train_model(subjects, subjects_task, ARGS, pca_result=pca_result).save_to_file(output_path)
+        print("Finished.")
 
     elif ARGS.predict and not ARGS.train:
         validate_predict_args(ARGS)
@@ -200,7 +219,7 @@ def main():
         predictions = localizer.predict(subjects)
         utils.utils.create_dir(ARGS.output_dir)
         for subject, prediction in zip(subjects, predictions):
-            subject_result_file = os.path.join(ARGS.output_dir, subject.name + 'result.pcl')
+            subject_result_file = os.path.join(ARGS.output_dir, subject.name + 'result.dtseries.nii')
             utils.cifti_utils.save_cifti(prediction, subject_result_file)
     else:
         PARSER.print_help()

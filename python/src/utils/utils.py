@@ -35,7 +35,7 @@ def add_ones_column_to_matrix(mat):
     shape = list(mat.shape)
     shape[1] += 1
     res = np.ones(shape)
-    res[1:] = mat
+    res[:,1:] = mat
     return res
 
 
@@ -88,6 +88,7 @@ class Subject(object):
     def __init__(self, name, left_right_hemisphere_data_path='', sessions_nii_paths=[]):
         self.name = name
         self.correlation_coefficient = None
+        self.features = None
         self.sessions = [Session(path) for path in sessions_nii_paths]
         if left_right_hemisphere_data_path:
             self.left_right_hemisphere_data, _ = utils.cifti_utils.load_nii_brain_data_from_file(
