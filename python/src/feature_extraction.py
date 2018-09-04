@@ -78,12 +78,10 @@ def cifti_extract_data(cifti_image, BM, side):
     """extracts data from cifti images
     """
     if side == 'L':
-        indices = BM[0].data_indices
-        data = cifti_image[:, indices.start:indices.stop]
+        data = cifti_image[:, BM[0].data_indices]
     else:
         if side == 'R':
-            indices = BM[1].data_indices
-            data = cifti_image[:, indices.start:indices.stop]
+            data = cifti_image[:, BM[1].data_indices]
         else:
             if side == 'both':
                 data = cifti_image
