@@ -249,13 +249,15 @@ class Localizer:
         subjects_feature = map(self._feature_extractor.extract, subjects)
         self._predictor.fit(subjects_feature, subjects_task)
 
-    def predict(self, subject):
+    def predict(self, subject, load_feature_extraction=False,
+                feature_extraction_path=''):
         """Predict the task results from the subjects features.
 
         :param subject: The subject to predict his task results.
         :return: The task result prediction.
         """
-        features = self._feature_extractor.extract(subject)
+        features = self._feature_extractor.extract(subject, load_feature_extraction=load_feature_extraction,
+                                                   feature_extraction_path=feature_extraction_path)
         res = self._predictor.predict(features)
         return res
 

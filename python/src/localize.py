@@ -87,11 +87,8 @@ def validate_predict_args(args):
     if not os.path.exists(args.input_dir):
         raise ValueError("Input file doesn't exist.")
 
-    if os.path.exists(args.model_file):
+    if not os.path.exists(args.model_file):
         raise ValueError("Model file doesn't exist.")
-
-    if os.path.exists(args.output_dir):
-        raise ValueError("Output directory already exist. Please delete it first, or change the output directory.")
 
 
 def validate_train_args(args):
@@ -214,13 +211,19 @@ def main():
 
     elif ARGS.predict and not ARGS.train:
         validate_predict_args(ARGS)
+        print("Loading subjects and tasks.")
         subjects = load_subjects(ARGS)
+        print("Loading model.")
         localizer = Localizer.load_from_file(ARGS.model_file)
-        predictions = localizer.predict(subjects)
+        print("Running predictions.")
+        predictions = localizer.predict(subjects, load_feature_extraction=ARGS.load_feature_extraction,
+                                        feature_extraction_path=ARGS.feature_extraction_result)
         utils.utils.create_dir(ARGS.output_dir)
-        for subject, prediction in zip(subjects, predictions):
-            subject_result_file = os.path.join(ARGS.output_dir, subject.name + 'result.dtseries.nii')
-            utils.cifti_utils.save_cifti(prediction, subject_result_file)
+        # for subject, prediction in zip(subjects, predictions):
+        #     subject_result_file = os.path.join(ARGS.output_dir, subject.name + 'result.dtseries.nii')
+        print("Saving Results.")
+        utils.cifti_utils.save_cifti(predictions, os.path.join(ARGS.output_dir,'result.dtseries.nii'))
+        print("Finished")
     else:
         PARSER.print_help()
         raise ValueError("Either --train or --predict must be provided, and not both.")
