@@ -17,7 +17,8 @@ class FeatureExtractor:
     """A class warping the scaling and feature extraction methods.
     """
 
-    def __init__(self, subjects, pca_result, sample_file_path='../resources/example.dtseries.nii'):
+    # todo add option to create the pca results.
+    def __init__(self, subjects, pca_result=None, sample_file_path='../resources/example.dtseries.nii'):
         """ Init the Feature Extractor from subjects and pca.
         Create a scaling factor of the cortical and sub cortical parts.
 
@@ -25,6 +26,10 @@ class FeatureExtractor:
         :param pca_result: the PCA  to use.
         """
         self.semi_dense_connectome_data = None
+
+        if pca_result is None:
+            raise NotImplementedError("Not yet supported")
+
         self.pca_result = pca_result
 
         _, self.default_brain_map = utils.cifti_utils.load_nii_brain_data_from_file(sample_file_path)
@@ -43,6 +48,10 @@ class FeatureExtractor:
 
         self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(flattened_ctx_features)
         self.scaler_sub_ctx = sklearn.preprocessing.StandardScaler().fit(flattened_sub_ctx_features)
+
+        features = self._scale(features)
+        for subject, feature in zip(subjects, features):
+            subject.features = feature
 
     def _scale(self, subjects_features):
         """Scale the subject features using constant scaling factor.
@@ -79,7 +88,7 @@ class FeatureExtractor:
         :param with_scaling:
         :return: The subjects' features.
         """
-        # TODO(loya) return to this
+        # # TODO(loya) return to this
         left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
             self.pca_result, self.default_brain_map
         )
@@ -101,9 +110,10 @@ class FeatureExtractor:
         # res = np.transpose(
         #     scipy.io.loadmat('feature_ext_result.mat')['feature_ext_result'])
         if with_scaling:
-            return self._scale(res)
-        else:
-            return res
+            res = self._scale(res)
+        for subject, feature in zip(subjects, res):
+            subject.features = feature
+        return res
 
 
 class Predictor:
@@ -112,32 +122,35 @@ class Predictor:
         This allow injecting another model instead, as it uses fit(x,y) and predict(x).
     """
 
-    def __init__(self, pca_result):
+    def __init__(self, pca_result, brain_maps):
         """Init the predictor.
 
         :param pca_result: The pca to extract the spatial filtering from.
                         This is later user to group indexes by their connectivity ICA,
                         and combine them as their group only predictors.
         """
-        self.beta = None
-        self.spatial_features = feature_extraction.get_spatial_filters(pca_result)
-
-    def _get_beta(self, subject_feature, subject_task):
+        self.betas = None
+        self.spatial_features = feature_extraction.get_spatial_filters(pca_result, brain_maps)
+        print('self.spatial_features',self.spatial_features)
+        print('self.spatial_features.shape',self.spatial_features.shape)
+    def _get_beta(self, subject_features, subject_task):
         """Get the prediction betas from psudo-inverse of ((beta @ [1 subject_features] = subject_task)).
 
-        :param subject_feature: The subject features.
+        :param subject_features: The subject features.
         :param subject_task: The subject task results.
         :return: The subject betas.
         """
         task = subject_task
-        subject_feature = sklearn.preprocessing.normalize(subject_feature)
+        subject_features = sklearn.preprocessing.normalize(subject_features)
         betas = np.zeros(
-            (subject_feature.shape[1] + 1, self.spatial_features.shape[1]))
+            (subject_features.shape[1] + 1, self.spatial_features.shape[1]))
         for j in range(self.spatial_features.shape[1]):
             ind = self.spatial_features[:, j] > 0
-            y = task[ind]
-            x = utils.utils.add_ones_column_to_matrix(subject_feature[ind])
-            betas[:, j] = np.linalg.pinv(x) @ y
+            if np.any(ind):
+                y = task[ind]
+                demeaned_features = sklearn.preprocessing.scale(subject_features[ind], with_std=False)
+                x = utils.utils.add_ones_column_to_matrix(demeaned_features)
+                betas[:, j] = np.linalg.pinv(x) @ y
         return betas
 
     def fit(self, subjects_feature, subjects_task):
@@ -148,13 +161,31 @@ class Predictor:
         :param subjects_task: y,
                 [n_samples, n_results] Matrix like object containing the subject task results.
         """
-        betas = np.asarray(map(
-            lambda feature, task: self._get_beta(
-                feature,
-                task),
-            zip(subjects_feature, subjects_task)
-        ), dtype=np.float32)
-        self.beta = np.mean(betas, axis=0)
+        betas = []
+        for subject_feature, task in zip(subjects_feature, subjects_task):
+            betas.append(self._get_beta(subject_feature, task))
+        betas = np.array(betas, dtype=np.float32)
+        print("betas:", betas)
+        print("betas.shape:", betas.shape)
+        print("betas[0].shape:", betas[0].shape)
+        self.betas = betas
+
+    def _predict(self, subject_features):
+        res = np.zeros(self.spatial_features.shape[0])
+        print("self.spatial_features.shape[0]", self.spatial_features.shape[0])
+        betas_after_transpose = self.betas.transpose([1,2,0])
+        print('betas_after_transpose.shape',betas_after_transpose.shape)
+        for j in range(self.spatial_features.shape[1]):
+            ind = self.spatial_features[:, j] > 0
+            if np.any(ind):
+                demeaned_features = sklearn.preprocessing.scale(subject_features[ind], with_std=False)
+                x = utils.utils.add_ones_column_to_matrix(demeaned_features)
+                current_betas = betas_after_transpose[:, j, :]
+                print('current_betas.shape',current_betas.shape )
+                print('np.mean(current_betas, axis=2).shape',np.mean(current_betas, axis=1).shape)
+                res[ind] = x @ np.mean(current_betas, axis=1)
+                print('res[ind].shape',res[ind].shape)
+        return res
 
     def predict(self, subjects_features):
         """Predict the task results from the subjects features.
@@ -164,11 +195,10 @@ class Predictor:
         :return: y,
                     [n_subjects, n_results] Matrix like object containing the task result prediction.
         """
-        if self.beta is None:
+        if self.betas is None:
             raise BrokenPipeError("Cannot predict before the model was trained!")
-        subjects_features_with_ones = map(utils.utils.add_ones_column_to_matrix, subjects_features)
-
-        return map(lambda subject_features: subject_features @ self.beta, subjects_features_with_ones)
+        print("beta.shape:", self.betas.shape)
+        return np.array([self._predict(subject_features) for subject_features in subjects_features])
 
 
 class Localizer:
@@ -179,7 +209,7 @@ class Localizer:
         """Initialize a localizer object
 
         :param subjects: The subject to train on.
-        :param subjects_task: The subject's task result to fit the model on.
+        :param subjects_task: The subjects' task result to fit the model on.
         :param pca_result: The pca to use for the features extraction and ICA filtering.
                     If not provided, you must provide subjects to create the PCA from.
         :param feature_extractor: The feature extractor object to use.
@@ -196,14 +226,16 @@ class Localizer:
             pca_result = iterative_pca.iterative_pca(subjects)
 
         self._feature_extractor = FeatureExtractor(subjects, pca_result)
+
         if predictor is None:
             if subjects_task is None:
                 raise ValueError(
                     'Cannot initialize a localizer if no predictor was provided, and no subjects and no '
                     'subject\'s_task were provided, as it cannot train a new predictor without subjects and '
                     'subjects\'s task results.')
-            predictor = Predictor(pca_result)
-            predictor.fit(subjects, subjects_task)
+            predictor = Predictor(pca_result, self._feature_extractor.default_brain_map)
+            subjects_features = [subject.features for subject in subjects]
+            predictor.fit(subjects_features, subjects_task)
         self._predictor = predictor
 
     def fit(self, subjects, subjects_task):
@@ -224,9 +256,6 @@ class Localizer:
         """
         features = self._feature_extractor.extract(subject)
         res = self._predictor.predict(features)
-        path_to_save = '../test_resources/'+subject.name+'.dtseries.nii'
-        utils.save_cifti(res,path_to_save)
-        print('Saved cifti file of prediction for subject'+subject.name+'in: '+path_to_save)
         return res
 
     def save_to_file(self, file_path):
@@ -234,7 +263,7 @@ class Localizer:
 
         :param file_path: Path to save the object to.
         """
-        return pickle.dump(gzip.open(file_path, 'wb'), self)
+        return pickle.dump(self, gzip.open(file_path, 'wb'))
 
     @staticmethod
     def load_from_file(file_path):
@@ -247,3 +276,4 @@ class Localizer:
         if not isinstance(res, Localizer):
             raise TypeError("Content of file is either an old type and deprecated Localizer model, "
                             "a corrupted file or in a wrong file format.")
+        return res

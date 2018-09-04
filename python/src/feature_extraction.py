@@ -40,10 +40,10 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     # TODO (Itay) cifti_image to left_hemisphere_data and right_hemisphere_data
     left_hemisphere_data = cifti_extract_data(cifti_image, BM, 'L')
     right_hemisphere_data = cifti_extract_data(cifti_image, BM, 'R')
-    
+
     left_ica = ica_with_threshold(left_hemisphere_data, num_ic, threshold)
     right_ica = ica_with_threshold(right_hemisphere_data, num_ic, threshold)
-    
+
     # keep ICA components that have L/R symmetry
     # left-right DICE of cortical ICs to
     # 1) re-order the ICs
@@ -52,7 +52,7 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     y = np.zeros([32492, right_ica.shape[0]])
     x[BM[0].surface_indices, :x.shape[1]] = left_ica.transpose()
     y[BM[1].surface_indices, :y.shape[1]] = right_ica.transpose()
-    
+
     threshold_2 = 0.00000029
 
     D = dice(x > threshold_2, y > threshold_2)
@@ -161,7 +161,6 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
 
         t = util.fsl_glm(np.transpose(T), np.transpose(subject_data))
         subject.left_right_hemisphere_data = np.transpose(t) * hemis
-
 
 
 def get_subcortical_parcellation(cifti_image, brain_maps):
@@ -299,10 +298,12 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         print("F.shape:", F.shape)
         subject.correlation_coefficient = F
 
-def get_spatial_filters(filters):
+
+def get_spatial_filters(pca_result, brain_maps):
     """Gets the filters (a result of the ica on the pca result), uses threshold and do winner-take-all
     The returned matrix is an index matrix which is MATLAB compatible.
     """
+    filters = run_group_ica_together(pca_result, brain_maps)
     m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
 
     # +1 for MATLAB compatibility
@@ -312,5 +313,5 @@ def get_spatial_filters(filters):
     S = np.zeros_like(filters)
     for i in range(filters.shape[1]):
         # +1 for MATLAB compatibility
-        S[:, i] = (wta == i+1).astype(float)
+        S[:, i] = (wta == i + 1).astype(float)
     return S

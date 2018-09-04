@@ -44,7 +44,7 @@ def get_cortex_and_sub_cortex_indices(sample_file_path='./example.dtseries.nii')
 def save_cifti(cifti_img, path,series=None, brain_maps=None,sample_file_path='../resources/example.dtseries.nii'):
     """
 
-    :param cifti_img: [n_component, 91282]
+    :param cifti_img: [91282, n_component]
     :param path:
     :param sample_file_path:
     :return:

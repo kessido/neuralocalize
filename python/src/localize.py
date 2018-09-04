@@ -104,10 +104,9 @@ def load_subjects(args):
     subj_dir = os.path.join(args.input_dir, 'Subjects')
     subject_folders = os.listdir(subj_dir)
     for subj_folder in subject_folders:
-        if subj_folder.isdigit():
-            subj = utils.utils.Subject(name=subj_folder)
-            subj.load_from_directory(os.path.join(args.input_dir, subj_folder, constants.PATH_TO_SESSIONS))
-            subjects.append(subj)
+        subj = utils.utils.Subject(name=subj_folder)
+        subj.load_from_directory(os.path.join(args.input_dir, subj_folder, constants.PATH_TO_SESSIONS))
+        subjects.append(subj)
     return subjects
 
 
@@ -202,7 +201,7 @@ def main():
         utils.utils.create_dir(ARGS.output_dir)
         for subject, prediction in zip(subjects, predictions):
             subject_result_file = os.path.join(ARGS.output_dir, subject.name + 'result.pcl')
-            pickle.dump(open(subject_result_file, 'wb'), prediction)
+            utils.cifti_utils.save_cifti(prediction, subject_result_file)
     else:
         PARSER.print_help()
         raise ValueError("Either --train or --predict must be provided, and not both.")
