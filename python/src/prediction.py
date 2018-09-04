@@ -30,13 +30,19 @@ class FeatureExtractor:
         _, self.default_brain_map = utils.cifti_utils.load_nii_brain_data_from_file(sample_file_path)
 
         self.ctx_indices, self.sub_ctx_indices = utils.cifti_utils.get_cortex_and_sub_cortex_indices(sample_file_path)
+        # [subjects x features (tasks x brain)]
         features = self.extract(subjects, False)
         features = np.array(features)
 
         # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
         # self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.ctx_indices])
-        self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.ctx_indices])
-        self.scaler_sub_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.sub_ctx_indices])
+        print("ctx shape:", self.ctx_indices.shape, "features shape:", features.shape)
+
+        flattened_ctx_features = utils.utils.flatten_features_for_scale(features[:, self.ctx_indices])
+        flattened_sub_ctx_features = utils.utils.flatten_features_for_scale(features[:, self.sub_ctx_indices])
+
+        self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(flattened_ctx_features)
+        self.scaler_sub_ctx = sklearn.preprocessing.StandardScaler().fit(flattened_sub_ctx_features)
 
     def _scale(self, subjects_features):
         """Scale the subject features using constant scaling factor.
@@ -44,9 +50,21 @@ class FeatureExtractor:
         :param subjects_features: The subjects' features to scale [n_sample, n_features].
         :return: The scaled subject's features.
         """
+        # TODO(loya, kessi) Validate the normalization.
         res = np.zeros(subjects_features.shape)
-        res[:, self.ctx_indices] = self.scaler_ctx.transform(subjects_features[:, self.ctx_indices])
-        res[:, self.sub_ctx_indices] = self.scaler_sub_ctx.transform(subjects_features[:, self.sub_ctx_indices])
+
+        ctx_features = subjects_features[:, self.ctx_indices]
+        sub_ctx_features = subjects_features[:, self.sub_ctx_indices]
+
+        flattened_ctx_features = utils.utils.flatten_features_for_scale(ctx_features)
+        flattened_sub_ctx_features = utils.utils.flatten_features_for_scale(sub_ctx_features)
+
+        normalize_flattened_ctx_features = self.scaler_ctx.transform(flattened_ctx_features)
+        normalize_flattened_sub_ctx_features = self.scaler_sub_ctx.transform(flattened_sub_ctx_features)
+
+        res[:, self.ctx_indices] = normalize_flattened_ctx_features.reshape(ctx_features.shape)
+        res[:, self.sub_ctx_indices] = normalize_flattened_sub_ctx_features.reshape(sub_ctx_features.shape)
+
         return res
 
     def _get_or_create_semi_dense_connectome_data(self, pca_result, brain_map):
@@ -70,16 +88,18 @@ class FeatureExtractor:
         #
         # scipy.io.savemat('dual_reg_result.mat',
         #                  {'dual_reg_result': np.transpose(subjects[0].left_right_hemisphere_data)})
-        subjects[0].left_right_hemisphere_data = np.transpose(
-            scipy.io.loadmat('dual_reg_result.mat')['dual_reg_result'])
-        semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data(self.pca_result,
-                                                                                    self.default_brain_map)
-        semi_dense_connectome_data = semi_dense_connectome_data.transpose()
-        feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
-                                                     subjects)
-        res = np.array([sub.correlation_coefficient for sub in subjects])
-        scipy.io.savemat('feature_ext_result.mat',
-                         {'feature_ext_result': np.transpose(res)})
+        # subjects[0].left_right_hemisphere_data = np.transpose(
+        #     scipy.io.loadmat('dual_reg_result.mat')['dual_reg_result'])
+        # semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data(self.pca_result,
+        #                                                                             self.default_brain_map)
+        # semi_dense_connectome_data = semi_dense_connectome_data.transpose()
+        # feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
+        #                                              subjects)
+        # res = np.array([sub.correlation_coefficient.transpose() for sub in subjects])
+        # scipy.io.savemat('feature_ext_result.mat',
+        #                  {'feature_ext_result': np.transpose(res)})
+        res = np.transpose(
+            scipy.io.loadmat('feature_ext_result.mat')['feature_ext_result'])
         if with_scaling:
             return self._scale(res)
         else:
