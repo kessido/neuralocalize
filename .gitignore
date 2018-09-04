@@ -2,6 +2,7 @@
 *.nii
 *.mat*
 *.pcl*
+*bash.exe.*
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
