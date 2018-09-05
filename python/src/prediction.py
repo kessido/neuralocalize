@@ -3,10 +3,12 @@
 
 import gzip
 import pickle
-from constants import dtype
+import uuid
+
 import numpy as np
-import sklearn.preprocessing
 import scipy.io
+import sklearn.preprocessing
+
 import feature_extraction
 import iterative_pca
 import utils.cifti_utils
@@ -28,6 +30,8 @@ class FeatureExtractor:
         :param pca_result: the PCA  to use.
         """
         self.semi_dense_connectome_data = None
+        self.left_right_hemisphere_data = None
+        self.uuid = uuid.uuid4()
 
         if pca_result is None:
             raise NotImplementedError("Not yet supported")
@@ -52,7 +56,12 @@ class FeatureExtractor:
         self.scaler_sub_ctx = sklearn.preprocessing.StandardScaler().fit(flattened_sub_ctx_features)
 
         features = self._scale(features)
+
+        self._add_features_to_subjects(subjects, features)
+
+    def _add_features_to_subjects(self, subjects, features):
         for subject, feature in zip(subjects, features):
+            subject.features_extractor_uuid = self.uuid
             subject.features = feature
 
     def _scale(self, subjects_features):
@@ -78,47 +87,62 @@ class FeatureExtractor:
 
         return res
 
-    def _get_or_create_semi_dense_connectome_data(self, pca_result, brain_map):
-        if not self.semi_dense_connectome_data:
-            self.semi_dense_connectome_data = feature_extraction.get_subcortical_parcellation(pca_result, brain_map)
+    def _get_or_create_semi_dense_connectome_data(self):
+        if self.semi_dense_connectome_data is None:
+            self.semi_dense_connectome_data = feature_extraction.get_subcortical_parcellation(
+                self.pca_result, self.default_brain_map)
         return self.semi_dense_connectome_data
+
+    def _get_or_create_left_right_hemisphere_data(self):
+        if self.left_right_hemisphere_data is None:
+            self.left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
+                self.pca_result, self.default_brain_map
+            ).transpose()
+        return self.left_right_hemisphere_data
 
     def extract(self, subjects, with_scaling=True, load_feature_extraction=False,
                 feature_extraction_path=''):
         """Extract the subject features.
 
         :param subjects: The subjects to extract their features [n_subjects, n_data].
+        :param load_feature_extraction:
+        :param feature_extraction_path:
         :param with_scaling:
         :return: The subjects' features.
         """
         if load_feature_extraction:
-            res = np.transpose(
+            return np.transpose(
                 scipy.io.loadmat(feature_extraction_path)['feature_ext_result'])
+
         else:
-            # # TODO(loya) return to this
-            left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
-                self.pca_result, self.default_brain_map
-            )
-            left_right_hemisphere_data = left_right_hemisphere_data.transpose()
-            feature_extraction.run_dual_regression(left_right_hemisphere_data, self.default_brain_map, subjects)
+            res = [None for _ in range(len(subjects))]
 
-            # scipy.io.savemat('dual_reg_result.mat',
-            #                  {'dual_reg_result': np.transpose(subjects[0].left_right_hemisphere_data)})
-            # subjects[0].left_right_hemisphere_data = np.transpose(
-            #     scipy.io.loadmat('dual_reg_result.mat')['dual_reg_result'])
-            semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data(self.pca_result,
-                                                                                        self.default_brain_map)
-            semi_dense_connectome_data = semi_dense_connectome_data.transpose()
-            feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data,
-                                                         subjects)
-            res = np.array([sub.correlation_coefficient.transpose() for sub in subjects])
-            # scipy.io.savemat('feature_ext_result.mat',
-            #                  {'feature_ext_result': np.transpose(res)})
+            subjects_not_computed_indexes = []
+            needed_subjects = []
 
+            for i, subject in enumerate(subjects):
+                if subject.features_extractor_uuid == self.uuid:
+                    res[i] = subject.features
+                else:
+                    subjects_not_computed_indexes.append(i)
+                    needed_subjects.append(subject)
+
+            subjects = needed_subjects
+
+            if len(subjects) > 0:
+                # # TODO(loya) return to this
+                feature_extraction.run_dual_regression(self._get_or_create_left_right_hemisphere_data(),
+                                                       self.default_brain_map, subjects)
+
+                semi_dense_connectome_data = self._get_or_create_semi_dense_connectome_data().transpose()
+                feature_extraction.get_semi_dense_connectome(semi_dense_connectome_data, subjects)
+                feature_extraction_res = [sub.correlation_coefficient.transpose() for sub in subjects]
+                for i, subject_result in zip(subjects_not_computed_indexes, feature_extraction_res):
+                    res[i] = subject_result
+        res = np.array(res)
         if with_scaling:
             res = self._scale(res)
-        for subject, feature in zip(subjects, res):
-            subject.features = feature
+        self._add_features_to_subjects(subjects, res)
         return res
 
 

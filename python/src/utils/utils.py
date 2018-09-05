@@ -1,8 +1,8 @@
-import constants
 import os
 
 import numpy as np
 
+import constants
 import utils.cifti_utils
 
 
@@ -35,7 +35,7 @@ def add_ones_column_to_matrix(mat):
     shape = list(mat.shape)
     shape[1] += 1
     res = np.ones(shape)
-    res[:,1:] = mat
+    res[:, 1:] = mat
     return res
 
 
@@ -88,6 +88,7 @@ class Subject(object):
     def __init__(self, name, left_right_hemisphere_data_path='', sessions_nii_paths=[]):
         self.name = name
         self.correlation_coefficient = None
+        self.features_extractor_uuid = None
         self.features = None
         self.sessions = [Session(path) for path in sessions_nii_paths]
         if left_right_hemisphere_data_path:
@@ -104,11 +105,12 @@ class Subject(object):
 
         :param path:
         :param left_right_hemisphere_data_suffix:
-        :return:
+        :return:The subject
         """
         for session_dir in constants.SESSION_DIRS:
             path_to_session = os.path.join(base_session_dir, session_dir)
             self.sessions.append(Session(path_to_session))
+        return self
 
 
 def flatten_features_for_scale(x):

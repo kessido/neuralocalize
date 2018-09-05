@@ -2,15 +2,15 @@
 
 import argparse
 import os
-import pickle
 
 import numpy as np
 # import sklearn.model_selection
 import sklearn
+
 import constants
-from constants import dtype
-import utils.utils
 import utils.cifti_utils
+import utils.utils
+from constants import dtype
 # TODO(loya) add full description.
 from prediction import Localizer
 
@@ -141,7 +141,7 @@ def load_subjects_task(args, subjects):
 
 
 # todo(kess) add optiong to also include PCA
-def train_model(subjects, subjects_task, args, pca_result):
+def train_model(subjects, subjects_task, args, pca_result=None):
     """Train a localizer model
 
     :param subjects: The subjects to train on.
@@ -165,8 +165,8 @@ def get_benchmark(localizer, subjects, subjects_task):
     :return: The benchmark.
     """
     predictions = localizer.predict(subjects)
-    return (sum(map(lambda subject_task, prediction: np.linalg.norm(subject_task - prediction),
-                    zip(subjects_task, predictions)))).astype(dtype) / len(subjects)
+    return (sum(list(map(lambda subject_task, prediction: np.linalg.norm(subject_task - prediction),
+                         zip(subjects_task, predictions))))).astype(dtype) / len(subjects)
 
 
 def benchmark(subjects, subjects_task, args):
@@ -222,7 +222,7 @@ def main():
         # for subject, prediction in zip(subjects, predictions):
         #     subject_result_file = os.path.join(ARGS.output_dir, subject.name + 'result.dtseries.nii')
         print("Saving Results.")
-        utils.cifti_utils.save_cifti(predictions, os.path.join(ARGS.output_dir,'result.dtseries.nii'))
+        utils.cifti_utils.save_cifti(predictions, os.path.join(ARGS.output_dir, 'result.dtseries.nii'))
         print("Finished")
     else:
         PARSER.print_help()
