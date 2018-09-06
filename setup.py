@@ -10,5 +10,5 @@ setup(
     Task-free MRI predicts individual differences in brain activity during task performance:
     http://science.sciencemag.org/content/352/6282/216.
     ''',
-    requires=['numpy', 'scikit-learn'] ,
+    requires=['numpy', 'scikit-learn', 'nibabel', 'cifti'] ,
 )

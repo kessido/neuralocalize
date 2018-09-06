@@ -15,7 +15,7 @@ class Args():
 
 
 def dummy_test_feature_extraction_run():
-    pca_result, _ = utils.cifti_utils.load_nii_brain_data_from_file(
+    pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
         '../test_resources/GROUP_PCA_rand200_RFMRI.dtseries.nii')
     subjects = [util.Subject(
         'noam',
@@ -29,7 +29,7 @@ def dummy_test_feature_extraction_run():
 
 
 def dummy_test_localizer_run():
-    pca_result, _ = utils.cifti_utils.load_nii_brain_data_from_file(
+    pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
         r'..\test_resources\GROUP_PCA_rand200_RFMRI.dtseries.nii')
     subjects = [util.Subject(
         '100307').load_from_directory(f'..\\test_resources\\Subjects\\100307\\{constants.PATH_TO_SESSIONS}')]

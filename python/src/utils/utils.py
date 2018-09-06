@@ -66,20 +66,7 @@ class Session(object):
 
     def __init__(self, path_to_nii_file):
         self._path = path_to_nii_file
-
-    @property
-    def cifti(self):
-        cifti, _ = self.cifti_brain_maps
-        return cifti
-
-    @property
-    def brain_maps(self):
-        _, brain_maps = self.cifti_brain_maps
-        return brain_maps
-
-    @property
-    def cifti_brain_maps(self):
-        return utils.cifti_utils.load_nii_brain_data_from_file(self._path)
+        self.cifti, self.brain_maps = utils.cifti_utils.load_cifti_brain_data_from_file(self._path)
 
 
 class Subject(object):
@@ -92,7 +79,7 @@ class Subject(object):
         self.features = None
         self.sessions = [Session(path) for path in sessions_nii_paths]
         if left_right_hemisphere_data_path:
-            self.left_right_hemisphere_data, _ = utils.cifti_utils.load_nii_brain_data_from_file(
+            self.left_right_hemisphere_data, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
                 left_right_hemisphere_data_path)
             self.left_right_hemisphere_data = self.left_right_hemisphere_data.transpose()
         else:

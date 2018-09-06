@@ -38,7 +38,7 @@ class FeatureExtractor:
 
         self.pca_result = pca_result
 
-        _, self.default_brain_map = utils.cifti_utils.load_nii_brain_data_from_file(sample_file_path)
+        _, self.default_brain_map = utils.cifti_utils.load_cifti_brain_data_from_file(sample_file_path)
 
         self.ctx_indices, self.sub_ctx_indices = utils.cifti_utils.get_cortex_and_sub_cortex_indices(sample_file_path)
         # [subjects x features (tasks x brain)]
@@ -227,7 +227,7 @@ class Localizer:
 
     def __init__(self, subjects, subjects_task=None, pca_result=None, predictor=None,
                  load_feature_extraction=False,
-                 feature_extraction_path=''):
+                 feature_extraction_path='', feature_extractor=None):
         """Initialize a localizer object
 
         :param subjects: The subject to train on.
@@ -247,9 +247,12 @@ class Localizer:
         if pca_result is None:
             pca_result = iterative_pca.iterative_pca(subjects)
 
-        self._feature_extractor = FeatureExtractor(subjects, pca_result,
-                                                   load_feature_extraction=load_feature_extraction,
-                                                   feature_extraction_path=feature_extraction_path)
+        if feature_extractor is None:
+            feature_extractor = FeatureExtractor(subjects, pca_result,
+                                                 load_feature_extraction=load_feature_extraction,
+                                                 feature_extraction_path=feature_extraction_path)
+
+        self._feature_extractor = feature_extractor
 
         if predictor is None:
             if subjects_task is None:

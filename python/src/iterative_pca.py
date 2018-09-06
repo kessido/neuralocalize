@@ -8,8 +8,9 @@ import os
 
 import numpy as np
 import sklearn.preprocessing
-from constants import dtype
+
 import utils.cifti_utils
+from constants import dtype
 
 
 #
@@ -87,7 +88,7 @@ def get_subject_rest_rfMRI_image(subject_dir, session_n, session_type):
         'rfMRI_REST{session_n}_{session_type}/' +
         'rfMRI_REST{session_n}_{session_type}' +
         '_Atlas_hp2000_clean.dtseries.nii')
-    cifti, _ = utils.cifti_utils.load_nii_brain_data_from_file(file_name)
+    cifti, _ = utils.cifti_utils.load_cifti_brain_data_from_file(file_name)
     return np.asarray(cifti, dtype=dtype)
 
 
@@ -97,7 +98,7 @@ def iterative_pca(subjects, iterative_n=1200, result_n=1000):
         for session in subject.sessions:
             res = iterative_pca_subject(
                 res,
-                session.image,
+                session.cifti,
                 iterative_n)
     return res[:result_n, :].transpose()
 

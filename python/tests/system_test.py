@@ -1,7 +1,7 @@
 import traceback
 
 import feature_extraction as feature_extraction
-from utils.cifti_utils import load_nii_brain_data_from_file
+from utils.cifti_utils import load_cifti_brain_data_from_file
 from utils.utils import Subject
 
 method_to_nii = [
@@ -18,7 +18,7 @@ def get_matlab_matrix_as_numpy(nii_path):
     :param nii_path: A path to the nii file.
     :return: numpy matrix with the same data.
     """
-    image, _ = load_nii_brain_data_from_file(nii_path)
+    image, _ = load_cifti_brain_data_from_file(nii_path)
     # TODO this might be more complicated: may load separately for each cifti.
     # for the ICA matrix we needed:
     # np.array(nib_data.dataobj)
@@ -39,7 +39,7 @@ def abstract_test(method_to_test, nii_path):
 
 # todo(kess) Ask Noam how to integrate with her tests.
 def run_get_subcortical_parcellation_test():
-    cifti_image, brain_models = load_nii_brain_data_from_file(
+    cifti_image, brain_models = load_cifti_brain_data_from_file(
         r'..\test_resources\GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         # TODO this path is not in the git. Should be added into resources
@@ -48,7 +48,7 @@ def run_get_subcortical_parcellation_test():
 
 
 def run_group_ica_separately_test():
-    cifti_image, brain_models = load_nii_brain_data_from_file(
+    cifti_image, brain_models = load_cifti_brain_data_from_file(
         r'..\test_resources\GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         lambda: feature_extraction.run_group_ica_separately(cifti_image, brain_models)
@@ -56,7 +56,7 @@ def run_group_ica_separately_test():
 
 
 def run_group_ica_together_test():
-    cifti_image, brain_models = load_nii_brain_data_from_file(
+    cifti_image, brain_models = load_cifti_brain_data_from_file(
         r'..\test_resources\GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         lambda: feature_extraction.run_group_ica_together(cifti_image, brain_models)
@@ -64,7 +64,7 @@ def run_group_ica_together_test():
 
 
 def get_semi_dense_connectome_test():
-    sc_cifti_image, _ = load_nii_brain_data_from_file(
+    sc_cifti_image, _ = load_cifti_brain_data_from_file(
         r'..\test_resources\SC_clusters.dtseries.nii')
 
     # TODO(loya) validate these are the actual files.
@@ -82,7 +82,7 @@ def get_semi_dense_connectome_test():
 
 
 def run_dual_regression_test():
-    dt, brain_models = load_nii_brain_data_from_file(
+    dt, brain_models = load_cifti_brain_data_from_file(
         r'..\test_resources\ica_LR_MATCHED.dtseries.nii')
 
     # TODO(loya) notice there are more parameters such as ROIs

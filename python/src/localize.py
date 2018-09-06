@@ -12,7 +12,7 @@ import utils.cifti_utils
 import utils.utils
 from constants import dtype
 # TODO(loya) add full description.
-from prediction import Localizer
+from prediction import Localizer, FeatureExtractor
 
 PARSER = argparse.ArgumentParser(
     description=("""
@@ -132,7 +132,7 @@ def load_subjects_task(args, subjects):
     full_path_to_ordered_subjs = os.path.join(args.input_dir, args.task_ordered_subjects_filename)
     subj_index_dict = _get_ordered_subjects_list(full_path_to_ordered_subjs)
 
-    all_subjects_tasks, _ = utils.cifti_utils.load_nii_brain_data_from_file(full_path_to_tasks)
+    all_subjects_tasks, _ = utils.cifti_utils.load_cifti_brain_data_from_file(full_path_to_tasks)
 
     for subj in subjects:
         # TODO(loya) this might need transpose:
@@ -141,18 +141,19 @@ def load_subjects_task(args, subjects):
 
 
 # todo(kess) add optiong to also include PCA
-def train_model(subjects, subjects_task, args, pca_result=None):
+def train_model(subjects, subjects_task, args, pca_result=None, feature_extractor=None):
     """Train a localizer model
 
     :param subjects: The subjects to train on.
     :param subjects_task: The subjects' task to train on.
     :param args:
+    :param pca_result:
     :return: A localizer model
     """
     # todo(kess) this is where you change the model type.
     return Localizer(subjects, subjects_task, pca_result=pca_result,
                      load_feature_extraction=args.load_feature_extraction,
-                     feature_extraction_path=args.feature_extraction_result)
+                     feature_extraction_path=args.feature_extraction_result, feature_extractor=feature_extractor)
 
 
 def get_benchmark(localizer, subjects, subjects_task):
@@ -165,16 +166,23 @@ def get_benchmark(localizer, subjects, subjects_task):
     :return: The benchmark.
     """
     predictions = localizer.predict(subjects)
-    return (sum(list(map(lambda subject_task, prediction: np.linalg.norm(subject_task - prediction),
-                         zip(subjects_task, predictions))))).astype(dtype) / len(subjects)
+    res = []
+    for subject_task, prediction in zip(subjects_task, predictions):
+        dif = np.abs(np.array(subject_task) - np.array(prediction))
+        res.append(np.linalg.norm(dif))
+    return np.mean(np.array(res))
 
 
-def benchmark(subjects, subjects_task, args):
+def benchmark(subjects, subjects_task, args, pca_result=None):
     benchmark_list = []
+    feature_extractor = FeatureExtractor(subjects, pca_result)
+    subjects_task = np.array(subjects_task)
+    subjects = np.array(subjects)
     for train_indices, test_indices in sklearn.model_selection.LeaveOneOut().split(subjects):
+        print("Run on ", train_indices, test_indices)
         localizer = train_model(subjects[train_indices],
                                 subjects_task[train_indices],
-                                args)
+                                args, pca_result, feature_extractor)
         benchmark_list.append(
             get_benchmark(localizer,
                           subjects[test_indices],
@@ -189,11 +197,16 @@ def main():
         print("Loading subjects and tasks.")
         subjects = load_subjects(ARGS)
         subjects_task = load_subjects_task(ARGS, subjects)
+        pca_result = None
+        if not ARGS.run_with_pca:
+            pca_result_path = os.path.join(ARGS.input_dir, ARGS.pca_result)
+            pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(pca_result_path)
 
         if ARGS.benchmark:
             if len(subjects) <= 1:
                 raise ValueError("Not enough subjects to preform leave-one-out.")
-            mean, std, raw = benchmark(subjects, subjects_task, ARGS)
+            print("Benchmark Starting...")
+            mean, std, raw = benchmark(subjects, subjects_task, ARGS, pca_result=pca_result)
             print("Benchmark Results:")
             print("Mean:", mean)
             print("STD:", std)
@@ -201,12 +214,7 @@ def main():
 
         output_path = os.path.join(ARGS.output_dir, ARGS.output_filename)
         print("Training Model.")
-        if ARGS.run_with_pca:
-            train_model(subjects, subjects_task, ARGS).save_to_file(output_path)
-        else:
-            pca_result_path = os.path.join(ARGS.input_dir, ARGS.pca_result)
-            pca_result, _ = utils.cifti_utils.load_nii_brain_data_from_file(pca_result_path)
-            train_model(subjects, subjects_task, ARGS, pca_result=pca_result).save_to_file(output_path)
+        train_model(subjects, subjects_task, ARGS, pca_result=pca_result).save_to_file(output_path)
         print("Finished.")
 
     elif ARGS.predict and not ARGS.train:
