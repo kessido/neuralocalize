@@ -219,8 +219,6 @@ def main():
         predictions = localizer.predict(subjects, load_feature_extraction=ARGS.load_feature_extraction,
                                         feature_extraction_path=ARGS.feature_extraction_result)
         utils.utils.create_dir(ARGS.output_dir)
-        # for subject, prediction in zip(subjects, predictions):
-        #     subject_result_file = os.path.join(ARGS.output_dir, subject.name + 'result.dtseries.nii')
         print("Saving Results.")
         utils.cifti_utils.save_cifti(predictions, os.path.join(ARGS.output_dir,'result.dtseries.nii'))
         print("Finished")
