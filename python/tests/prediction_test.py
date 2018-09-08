@@ -5,7 +5,7 @@ import localize
 import prediction
 import utils.cifti_utils
 import utils.utils as util
-
+import traceback
 
 class Args():
     def __init__(self, input_dir, task_filename, task_ordered_subjects_filename):
@@ -15,7 +15,7 @@ class Args():
 
 
 def dummy_test_feature_extraction_run():
-    pca_result, _ = utils.cifti_utils.load_nii_brain_data_from_file(
+    pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
         '../test_resources/GROUP_PCA_rand200_RFMRI.dtseries.nii')
     subjects = [util.Subject(
         'noam',
@@ -29,26 +29,30 @@ def dummy_test_feature_extraction_run():
 
 
 def dummy_test_localizer_run():
-    pca_result = load_nii_brain_data_from_file(
-        '../test_resources/GROUP_PCA_rand200_RFMRI.dtseries.nii')
+    pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
+        r'..\test_resources\GROUP_PCA_rand200_RFMRI.dtseries.nii')
     subjects = [util.Subject(
-        '100307',
-        sessions_nii_paths=[
-            r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
-            r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
-            r'..\test_resources\rfMRI_REST2_LR\rfMRI_REST2_LR_Atlas_hp2000_clean.dtseries.nii',
-            r'..\test_resources\rfMRI_REST2_RL\rfMRI_REST2_RL_Atlas_hp2000_clean.dtseries.nii'
-        ])]
+        '100307').load_from_directory(f'..\\test_resources\\Subjects\\100307\\{constants.PATH_TO_SESSIONS}')]
 
-    args = Args('../test_resources/', 'AllSubjects_001.dtseries.nii', 'subjects.txt')
+    args = Args(r'../test_resources/', 'AllSubjects_001.dtseries.nii', 'subjects.txt')
     tasks = localize.load_subjects_task(args, subjects)
-    # model = prediction.Localizer(subjects, subjects_task=tasks, pca_result=pca_result)
-    # model.save_to_file('model.pcl.gz')
+    model = prediction.Localizer(subjects, subjects_task=tasks, pca_result=pca_result)
+    model.save_to_file('model.pcl.gz')
     model = localize.Localizer.load_from_file('model.pcl.gz')
-    res = model.predict(subjects, load_feature_extraction=True,
-                feature_extraction_path='feature_ext_result.mat')
+    res = model.predict(subjects, load_feature_extraction=False,
+                        feature_extraction_path='feature_ext_result.mat')
     utils.cifti_utils.save_cifti(res, 'res.dtseries.nii')
+    print('Norm:', np.linalg.norm(tasks[0] - res[0]))
 
 
-dummy_test_localizer_run()
-# dummy_test_feature_extraction_run()
+try:
+    dummy_test_localizer_run()
+except:
+    traceback.print_exc()
+
+
+try:
+    pass#dummy_test_feature_extraction_run()
+except:
+    traceback.print_exc()
+

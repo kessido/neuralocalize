@@ -1,9 +1,7 @@
-import pytest
-import nibabel as nib
-import numpy as np
-import scipy.io
-from utils.cifti_utils import load_nii_brain_data_from_file, BrainMap, save_cifti
+import traceback
+
 import feature_extraction as feature_extraction
+from utils.cifti_utils import load_cifti_brain_data_from_file
 from utils.utils import Subject
 
 method_to_nii = [
@@ -20,7 +18,7 @@ def get_matlab_matrix_as_numpy(nii_path):
     :param nii_path: A path to the nii file.
     :return: numpy matrix with the same data.
     """
-    image, _ = load_nii_brain_data_from_file(nii_path)
+    image, _ = load_cifti_brain_data_from_file(nii_path)
     # TODO this might be more complicated: may load separately for each cifti.
     # for the ICA matrix we needed:
     # np.array(nib_data.dataobj)
@@ -36,17 +34,13 @@ def abstract_test(method_to_test, nii_path):
     :param method_to_test: The method we wish to test
     :param nii_path: The path holding the expected matlab matrix.
     """
-    actual_output = method_to_test()  # TODO(loya) handle params if needed.
-    # scipy.io.savemat('dual_regression.mat', {'dual_regression': np.transpose(actual_output)})
-    expected_output = get_matlab_matrix_as_numpy(nii_path)
-
-    assert np.allclose(actual_output, expected_output)
+    actual_output = method_to_test()
 
 
 # todo(kess) Ask Noam how to integrate with her tests.
 def run_get_subcortical_parcellation_test():
-    cifti_image, brain_models = load_nii_brain_data_from_file(
-        'GROUP_PCA_rand200_RFMRI.dtseries.nii')
+    cifti_image, brain_models = load_cifti_brain_data_from_file(
+        r'..\test_resources\GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         # TODO this path is not in the git. Should be added into resources
         lambda: feature_extraction.get_subcortical_parcellation(cifti_image, brain_models),
@@ -54,28 +48,27 @@ def run_get_subcortical_parcellation_test():
 
 
 def run_group_ica_separately_test():
-    cifti_image, brain_models = load_nii_brain_data_from_file(
-        'GROUP_PCA_rand200_RFMRI.dtseries.nii')
+    cifti_image, brain_models = load_cifti_brain_data_from_file(
+        r'..\test_resources\GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         lambda: feature_extraction.run_group_ica_separately(cifti_image, brain_models)
         , r'..\..\matlab_results\ica_LR_MATCHED.dtseries.nii')
 
 
 def run_group_ica_together_test():
-    cifti_image, brain_models = load_nii_brain_data_from_file(
-        'GROUP_PCA_rand200_RFMRI.dtseries.nii')
+    cifti_image, brain_models = load_cifti_brain_data_from_file(
+        r'..\test_resources\GROUP_PCA_rand200_RFMRI.dtseries.nii')
     abstract_test(
         lambda: feature_extraction.run_group_ica_together(cifti_image, brain_models)
         , r'..\..\matlab_results\ica_both_lowdim.dtseries.nii')
 
 
 def get_semi_dense_connectome_test():
-    sc_cifti_image, _ = load_nii_brain_data_from_file(
+    sc_cifti_image, _ = load_cifti_brain_data_from_file(
         r'..\test_resources\SC_clusters.dtseries.nii')
 
     # TODO(loya) validate these are the actual files.
     subjects = [Subject('noam',
-                        r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii',
                         sessions_nii_paths=[
                             r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
                             r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
@@ -89,24 +82,38 @@ def get_semi_dense_connectome_test():
 
 
 def run_dual_regression_test():
-    dt, brain_models = load_nii_brain_data_from_file(
+    dt, brain_models = load_cifti_brain_data_from_file(
         r'..\test_resources\ica_LR_MATCHED.dtseries.nii')
 
     # TODO(loya) notice there are more parameters such as ROIs
     subjects = [Subject(
         'noam',
         sessions_nii_paths=[
-        r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
-        r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
-        r'..\test_resources\rfMRI_REST2_LR\rfMRI_REST2_LR_Atlas_hp2000_clean.dtseries.nii',
-        r'..\test_resources\rfMRI_REST2_RL\rfMRI_REST2_RL_Atlas_hp2000_clean.dtseries.nii'
-    ])]
+            r'..\test_resources\Subjects\100307\MNINonLinear\Results\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
+            r'..\test_resources\Subjects\100307\MNINonLinear\Results\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
+            r'..\test_resources\Subjects\100307\MNINonLinear\Results\rfMRI_REST2_LR\rfMRI_REST2_LR_Atlas_hp2000_clean.dtseries.nii',
+            r'..\test_resources\Subjects\100307\MNINonLinear\Results\rfMRI_REST2_RL\rfMRI_REST2_RL_Atlas_hp2000_clean.dtseries.nii'
+        ])]
 
     # TODO(loya) this is out of date. The test doesn't return value, but updates the .left_right... field in subjects.
     abstract_test(
         lambda: feature_extraction.run_dual_regression(dt.transpose(), brain_models, subjects)
         , r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii')
 
-# run_group_ica_separately_test()
-# run_dual_regression_test()
-get_semi_dense_connectome_test()
+
+try:
+    run_group_ica_together_test()
+except Exception:
+    traceback.print_exc()
+try:
+    run_group_ica_separately_test()
+except Exception:
+    traceback.print_exc()
+try:
+    get_semi_dense_connectome_test()
+except Exception:
+    traceback.print_exc()
+try:
+    run_get_subcortical_parcellation_test()
+except Exception:
+    traceback.print_exc()

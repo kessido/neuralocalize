@@ -1,24 +1,22 @@
 """This code simulates the feature extraction part of the connectivity model.
 """
-import nibabel as nib
 import numpy as np
-import scipy.io
-import scipy.signal
-import scipy.io
-import sklearn
-from constants import ICA_FUCKING_CONST, dtype
-
-import iterative_pca
-import utils.utils as util
-import constants
-
 # TODO(loya) make sure and remove these two
 import numpy.matlib as matlib
+import scipy.io
+import scipy.io
+import scipy.signal
+import sklearn
 import sklearn.decomposition
+
+import constants
+import utils.utils as util
+from constants import ICA_FUCKING_CONST, dtype
 
 
 def ica_with_threshold(image, num_ic, threshold):
-    ica_result, _, _ = sklearn.decomposition.fastica(image, num_ic, compute_sources=False)
+    ica = sklearn.decomposition.FastICA(n_components=num_ic)
+    ica_result = ica.fit_transform(image.transpose()).transpose()  # Reconstruct signals
     thresh = (np.abs(ica_result) > threshold).astype(dtype)
     ica_time_thresh = ica_result * thresh
     end_res = np.sign(np.sum(np.sign(ica_time_thresh), 1))
@@ -54,7 +52,7 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     x[BM[0].surface_indices, :x.shape[1]] = left_ica.transpose()
     y[BM[1].surface_indices, :y.shape[1]] = right_ica.transpose()
 
-    threshold_2 = 0.00000029
+    threshold_2 = ICA_FUCKING_CONST
 
     D = dice(x > threshold_2, y > threshold_2)
     D_threshold = (D == np.transpose(np.matlib.repmat(np.amax(D, 1), D.shape[1], 1))).astype(dtype)
@@ -68,8 +66,6 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     x = np.zeros((N, len(r)))
     x[BM[0].data_indices, :x.shape[1]] = np.transpose(left_ica[r, :])
     x[BM[1].data_indices, :len(c)] = np.transpose(right_ica[c, :])
-
-    scipy.io.savemat('ica_LR_MATCHED_test_2.mat', {'ica_LR_MATCHED_test': np.transpose(x)})
 
     return x.transpose()
 
@@ -232,7 +228,8 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         """
         cifti_current_map_data = cifti_image[:, current_map.data_indices]
         # todo(kess) this FastICA does not yield the same result as
-        ica_y, _, _ = sklearn.decomposition.fastica(cifti_current_map_data, 3, )
+        fastica = sklearn.decomposition.FastICA(3)
+        ica_y = fastica.fit_transform(cifti_current_map_data.transpose()).transpose()
 
         thresh = np.asarray(np.abs(ica_y) > ICA_FUCKING_CONST, dtype=dtype)
 
@@ -287,7 +284,8 @@ def get_spatial_filters(pca_result, brain_maps):
     The returned matrix is an index matrix which is MATLAB compatible.
     """
     print("Getting Spatial Filters.")
-    filters = run_group_ica_together(pca_result, brain_maps)
+    # filters = run_group_ica_together(pca_result, brain_maps)
+    filters = utils.cifti_utils.load
     m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
 
     # +1 for MATLAB compatibility

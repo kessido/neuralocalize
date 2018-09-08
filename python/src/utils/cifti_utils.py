@@ -1,7 +1,8 @@
+import itertools
+
 import nibabel as nib
 import numpy as np
-import itertools
-from constants import dtype
+
 import utils.utils
 
 
@@ -23,9 +24,9 @@ class BrainMap:
             self.surface_indices = []
 
 
-def load_nii_brain_data_from_file(nii_path):
+def load_cifti_brain_data_from_file(nii_path):
     """
-    Convert nii object into matlab matrix, and brain model meta data
+    Convert dtseries.nii object into numpy matrix, and brain model meta data
     :param nii_path: A path to a nii file
     :return: numpy matrix containing the image data, brain models iterable
     """
@@ -34,16 +35,18 @@ def load_nii_brain_data_from_file(nii_path):
 
 
 def get_cortex_and_sub_cortex_indices(sample_file_path='./example.dtseries.nii'):
-    _, brain_maps = load_nii_brain_data_from_file(sample_file_path)
+    _, brain_maps = load_cifti_brain_data_from_file(sample_file_path)
     ctx_inds = list(itertools.chain(
-    brain_maps[0].data_indices, brain_maps[1].data_indices))
+        brain_maps[0].data_indices, brain_maps[1].data_indices))
     sub_ctx_inds = utils.utils.remove_elements_from_list(range(91282), ctx_inds)
     return np.array(ctx_inds), np.array(sub_ctx_inds)
 
 
-def save_cifti(cifti_img, path,series=None, brain_maps=None,sample_file_path='../resources/example.dtseries.nii'):
+def save_cifti(cifti_img, path, series=None, brain_maps=None, sample_file_path='../resources/example.dtseries.nii'):
     """
 
+    :param brain_maps:
+    :param series:
     :param cifti_img: [91282, n_component]
     :param path:
     :param sample_file_path:
