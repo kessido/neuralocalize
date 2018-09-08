@@ -269,13 +269,16 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         ROIS = np.concatenate([subject.left_right_hemisphere_data, semi_dense_connectome_data], axis=1)
         for session in subject.sessions:
             # TODO(loya) this transpose was added as a patch, when fixed completely change back.
-            W.append(sklearn.preprocessing.scale(session.cifti).transpose())
+            scaled = sklearn.preprocessing.scale(session.cifti).transpose()
+            W.append(scaled)
         # TODO(loya) this might cause a bug.
         W = np.concatenate(W, axis=1)
         # MULTIPLE REGRESSION
         T = np.linalg.pinv(ROIS) @ W
         # CORRELATION COEFFICIENT
-        F = sklearn.preprocessing.normalize(T, axis=1) @ np.transpose(sklearn.preprocessing.normalize(W, axis=0))
+        normalized_T = sklearn.preprocessing.normalize(T, axis=1)
+        normalized_W = sklearn.preprocessing.normalize(np.transpose(W), axis=0)
+        F = normalized_T @ normalized_W
         subject.correlation_coefficient = F
 
 
