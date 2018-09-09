@@ -9,6 +9,7 @@ import scipy.signal
 import sklearn
 import sklearn.decomposition
 
+import utils.cifti_utils
 import constants
 import utils.utils as util
 from constants import ICA_FUCKING_CONST, dtype
@@ -267,6 +268,7 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
     for subject in subjects:
         W = []
         ROIS = np.concatenate([subject.left_right_hemisphere_data, semi_dense_connectome_data], axis=1)
+        scaled = None
         for session in subject.sessions:
             # TODO(loya) this transpose was added as a patch, when fixed completely change back.
             scaled = sklearn.preprocessing.scale(session.cifti).transpose()
@@ -279,16 +281,23 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         normalized_T = sklearn.preprocessing.normalize(T, axis=1)
         normalized_W = sklearn.preprocessing.normalize(np.transpose(W), axis=0)
         F = normalized_T @ normalized_W
+
         subject.correlation_coefficient = F
 
 
-def get_spatial_filters(pca_result, brain_maps):
+def get_spatial_filters(pca_result, brain_maps, load_ica=False):
     """Gets the filters (a result of the ica on the pca result), uses threshold and do winner-take-all
     The returned matrix is an index matrix which is MATLAB compatible.
     """
     print("Getting Spatial Filters.")
-    # filters = run_group_ica_together(pca_result, brain_maps)
-    filters = utils.cifti_utils.load
+    if load_ica:
+        filters, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
+            r'..\test_resources\ica_both_lowdim.dtseries.nii'
+        )
+        filters = filters.transpose()
+    else:
+        filters = run_group_ica_together(pca_result, brain_maps)
+
     m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
 
     # +1 for MATLAB compatibility
