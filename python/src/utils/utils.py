@@ -102,3 +102,23 @@ class Subject(object):
 
 def flatten_features_for_scale(x):
     return x.reshape((x.shape[0], x.shape[1] * x.shape[2]))
+
+def fsl_normalize(x, dim=None):
+    if dim is None:
+        dim = 0
+        if x.shape[0] > 1:
+            dim = 0
+        elif x.shape[1] > 1:
+            dim = 1
+
+    dims = x.shape
+    dim_size = dims[dim]
+    dim_rep = np.ones([len(dims)])
+    dim_rep[dim] = dim_size
+
+    x = x - np.tile(np.mean(x, dim), dim_rep.astype(dtype=int))
+    x = x / np.tile(np.std(x, axis=dim, ddof=1), dim_rep.astype(dtype=int))
+
+    x = x / np.sqrt(dim_size - 1)
+    # TODO(loya) add the isnan.
+    return x
