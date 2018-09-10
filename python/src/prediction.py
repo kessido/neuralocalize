@@ -60,10 +60,7 @@ class FeatureExtractor:
 
     def _scale_replace(self, features):
 
-        print("features before transpose:", features.shape)
         features = np.transpose(features, [1, 0, 2])
-        print("features after:", features.shape)
-        print("SHAPE:", features[self.ctx_indices, :, :].shape)
         ctx_features = features[self.ctx_indices, :, :]
         sub_ctx_features = features[self.sub_ctx_indices, :, :]
         if not self.ctx_normalizer.is_fit:
@@ -194,11 +191,12 @@ class Predictor:
         subject_features = normalizer.fit(subject_features)
         betas = np.zeros(
             (subject_features.shape[1] + 1, self.spatial_filters.shape[1]))
+        print("betas shape:", betas.shape)
         for j in range(self.spatial_filters.shape[1]):
             ind = self.spatial_filters[:, j] > 0
             if np.any(ind):
                 y = task[ind]
-                demeaned_features = sklearn.preprocessing.scale(subject_features[ind], with_std=False)
+                demeaned_features = utils.utils.fsl_demean(subject_features[ind])
                 x = utils.utils.add_ones_column_to_matrix(demeaned_features)
                 betas[:, j] = np.linalg.pinv(x) @ y
         return betas
