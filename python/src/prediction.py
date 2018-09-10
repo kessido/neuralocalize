@@ -31,6 +31,7 @@ class FeatureExtractor:
         """
         self.semi_dense_connectome_data = None
         self.left_right_hemisphere_data = None
+        self.normalizer = utils.utils.Normalizer()
         self.uuid = uuid.uuid4()
 
         if pca_result is None:
@@ -48,7 +49,7 @@ class FeatureExtractor:
         features = np.array(features)
 
         # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
-        features = self._scale_replace(features)
+        features = self.normalizer.fit(features)
 
         self._add_features_to_subjects(subjects, features)
 
@@ -151,7 +152,10 @@ class FeatureExtractor:
                     res[i] = subject_result
         res = np.array(res)
         if with_scaling:
-            res = self._scale(res)
+            if self.normalizer.is_fit:
+                res = self.normalizer.normalize(res)
+            else:
+                res = self.normalizer.fit(res)
         self._add_features_to_subjects(subjects, res)
         return res
 
@@ -181,7 +185,8 @@ class Predictor:
         """
         task = subject_task
         # TODO(loya) do we get this before or after the transposition?
-        subject_features = utils.utils.fsl_normalize(subject_features)
+        normalizer = utils.utils.Normalizer()
+        subject_features = normalizer.fit(subject_features)
         betas = np.zeros(
             (subject_features.shape[1] + 1, self.spatial_filters.shape[1]))
         for j in range(self.spatial_filters.shape[1]):

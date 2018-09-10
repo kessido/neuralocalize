@@ -103,30 +103,54 @@ class Subject(object):
 def flatten_features_for_scale(x):
     return x.reshape((x.shape[0], x.shape[1] * x.shape[2]))
 
-def fsl_normalize(x, dim=None):
-    if dim is None:
-        dim = 0
-        if x.shape[0] > 1:
+class Normalizer(object):
+    def __init__(self):
+        self.is_fit = False
+        self.mean = None
+        self.std = None
+
+    def fit(self, x, dim=None):
+        if dim is None:
             dim = 0
-        elif x.shape[1] > 1:
-            dim = 1
+            if x.shape[0] > 1:
+                dim = 0
+            elif x.shape[1] > 1:
+                dim = 1
 
-    print("x.shape", x.shape)
-    print("dim", dim)
-    dims = x.shape
-    print("dims", dims)
-    dim_size = dims[dim]
-    print("dims", dims)
-    dim_rep = np.ones([len(dims)])
-    dim_rep[dim] = dim_size
-    print("dim rep:", dim_rep)
+        dims = x.shape
+        dim_size = dims[dim]
+        dim_rep = np.ones([len(dims)])
+        dim_rep[dim] = dim_size
 
+        # print(np.tile(np.mean(x, dim), dim_rep.astype(dtype=int)))
+        self.mean = np.mean(x, dim)
+        self.std = np.std(x, axis=dim, ddof=1)
+        self.is_fit = True
+        x = x - np.tile(self.mean, dim_rep.astype(dtype=int))
+        x = x / np.tile(self.std, dim_rep.astype(dtype=int))
 
-    print("mean shape:", np.mean(x, dim).shape)
-    print(np.tile(np.mean(x, dim), dim_rep.astype(dtype=int)))
-    x = x - np.tile(np.mean(x, dim), dim_rep.astype(dtype=int))
-    x = x / np.tile(np.std(x, axis=dim, ddof=1), dim_rep.astype(dtype=int))
+        x = x / np.sqrt(dim_size - 1)
+        # TODO(loya) add the isnan.
+        return x
 
-    x = x / np.sqrt(dim_size - 1)
-    # TODO(loya) add the isnan.
-    return x
+    def normalize(self, x, dim=None):
+        if not self.is_fit:
+            raise ValueError("The Normalizer must be fitted before calling normalize!")
+        if dim is None:
+            dim = 0
+            if x.shape[0] > 1:
+                dim = 0
+            elif x.shape[1] > 1:
+                dim = 1
+
+        dims = x.shape
+        dim_size = dims[dim]
+        dim_rep = np.ones([len(dims)])
+        dim_rep[dim] = dim_size
+
+        x = x - np.tile(self.mean, dim_rep.astype(dtype=int))
+        x = x / np.tile(self.std, dim_rep.astype(dtype=int))
+
+        x = x / np.sqrt(dim_size - 1)
+        # TODO(loya) add the isnan.
+        return x
