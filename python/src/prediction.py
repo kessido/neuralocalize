@@ -31,7 +31,8 @@ class FeatureExtractor:
         """
         self.semi_dense_connectome_data = None
         self.left_right_hemisphere_data = None
-        self.normalizer = utils.utils.Normalizer()
+        self.ctx_normalizer = utils.utils.Normalizer()
+        self.sub_ctx_normalizer = utils.utils.Normalizer()
         self.uuid = uuid.uuid4()
 
         if pca_result is None:
@@ -47,9 +48,8 @@ class FeatureExtractor:
         features = self.extract(subjects, False, load_feature_extraction,
                                 feature_extraction_path)
         features = np.array(features)
-
         # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
-        features = self.normalizer.fit(features)
+        features = self._scale_replace(features)
 
         self._add_features_to_subjects(subjects, features)
 
@@ -66,8 +66,8 @@ class FeatureExtractor:
         print("SHAPE:", features[self.ctx_indices, :, :].shape)
         ctx_features = features[self.ctx_indices, :, :]
         sub_ctx_features = features[self.sub_ctx_indices, :, :]
-        normalized_ctx_features = utils.utils.fsl_normalize(ctx_features)
-        normalized_sub_ctx_features = utils.utils.fsl_normalize(sub_ctx_features)
+        normalized_ctx_features = self.ctx_normalizer.fit(ctx_features)
+        normalized_sub_ctx_features = self.sub_ctx_normalizer.fit(sub_ctx_features)
         features[self.ctx_indices, :, :] = normalized_ctx_features
         features[self.sub_ctx_indices, :, :] = normalized_sub_ctx_features
         return features
