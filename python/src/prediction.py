@@ -162,7 +162,7 @@ class Predictor:
         This allow injecting another model instead, as it uses fit(x,y) and predict(x).
     """
 
-    def __init__(self, pca_result, brain_maps):
+    def __init__(self, pca_result, brain_maps, load_ica_result):
         """Init the predictor.
 
         :param pca_result: The pca to extract the spatial filtering from.
@@ -170,7 +170,7 @@ class Predictor:
                         and combine them as their group only predictors.
         """
         self.betas = None
-        self.spatial_filters = feature_extraction.get_spatial_filters(pca_result, brain_maps)
+        self.spatial_filters = feature_extraction.get_spatial_filters(pca_result, brain_maps, load_ica_result)
 
     def _get_beta(self, subject_features, subject_task):
         """Get the prediction betas from psudo-inverse of ((beta @ [1 subject_features] = subject_task)).
@@ -238,7 +238,7 @@ class Localizer:
 
     def __init__(self, subjects, subjects_task=None, pca_result=None, predictor=None,
                  load_feature_extraction=False,
-                 feature_extraction_path='', feature_extractor=None):
+                 feature_extraction_path='', feature_extractor=None, load_ica_result=False):
         """Initialize a localizer object
 
         :param subjects: The subject to train on.
@@ -271,7 +271,7 @@ class Localizer:
                     'Cannot initialize a localizer if no predictor was provided, and no subjects and no '
                     'subject\'s_task were provided, as it cannot train a new predictor without subjects and '
                     'subjects\'s task results.')
-            predictor = Predictor(pca_result, self._feature_extractor.default_brain_map)
+            predictor = Predictor(pca_result, self._feature_extractor.default_brain_map, load_ica_result=load_ica_result)
             subjects_features = [subject.features for subject in subjects]
             print("Fitting predictor")
             predictor.fit(subjects_features, subjects_task)
