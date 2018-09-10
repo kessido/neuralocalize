@@ -7,6 +7,7 @@ model_filename = 'model.pcl.gzip'
 dtype = np.float32
 ICA_FUCKING_CONST = 0.005
 SPATIAL_FILTERS_CONST = 0.005
+SPATIAL_FILTERS_CONST_WITH_LOAD = 2.1
 PATH_TO_SESSION = "MNINonLinear/Results"
 
 SESSION_IDS = [('1', 'LR'), ('1', 'RL'), ('2', 'LR'), ('2', 'RL')]
