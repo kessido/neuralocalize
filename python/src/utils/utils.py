@@ -60,6 +60,22 @@ def fsl_glm(x, y):
     t = beta / np.sqrt(varcope)
     return t
 
+def fsl_demean(x, dim=None):
+    if dim is None:
+        dim = 0
+        if x.shape[0] > 1:
+            dim = 0
+        elif x.shape[1] > 1:
+            dim = 1
+
+    dims = x.shape
+    dim_size = dims[dim]
+    dim_rep = np.ones([len(dims)])
+    dim_rep[dim] = dim_size
+    mean = np.mean(x, dim)
+    x = x - np.tile(mean, dim_rep.astype(dtype=int))
+    return x
+
 
 class Session(object):
     """A class representing a session"""
