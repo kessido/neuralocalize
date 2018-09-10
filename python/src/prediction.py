@@ -66,12 +66,20 @@ class FeatureExtractor:
         print("SHAPE:", features[self.ctx_indices, :, :].shape)
         ctx_features = features[self.ctx_indices, :, :]
         sub_ctx_features = features[self.sub_ctx_indices, :, :]
-        normalized_ctx_features = self.ctx_normalizer.fit(ctx_features)
-        normalized_sub_ctx_features = self.sub_ctx_normalizer.fit(sub_ctx_features)
+        if not self.ctx_normalizer.is_fit:
+            normalized_ctx_features = self.ctx_normalizer.fit(ctx_features)
+        else:
+            normalized_ctx_features = self.ctx_normalizer.normalize(ctx_features)
+        if not self.sub_ctx_normalizer.is_fit:
+            normalized_sub_ctx_features = self.sub_ctx_normalizer.fit(sub_ctx_features)
+        else:
+            normalized_sub_ctx_features = self.sub_ctx_normalizer.normalize(sub_ctx_features)
         features[self.ctx_indices, :, :] = normalized_ctx_features
         features[self.sub_ctx_indices, :, :] = normalized_sub_ctx_features
+        features = np.transpose(features, [1, 0, 2]) # TODO(loya) experiment
         return features
 
+    # TODO(loya) delete and validate nothing breaks.
     def _scale(self, subjects_features):
         """Scale the subject features using constant scaling factor.
 
@@ -152,10 +160,7 @@ class FeatureExtractor:
                     res[i] = subject_result
         res = np.array(res)
         if with_scaling:
-            if self.normalizer.is_fit:
-                res = self.normalizer.normalize(res)
-            else:
-                res = self.normalizer.fit(res)
+            res = self._scale_replace(res)
         self._add_features_to_subjects(subjects, res)
         return res
 
