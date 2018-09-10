@@ -293,22 +293,27 @@ def get_spatial_filters(pca_result, brain_maps, load_ica=False):
     The returned matrix is an index matrix which is MATLAB compatible.
     """
     print("Getting Spatial Filters.")
+    spatial_const = None
     if load_ica:
         filters, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
             r'..\test_resources\ica_both_lowdim.dtseries.nii'
         )
         filters = filters.transpose()
+        spatial_const = constants.SPATIAL_FILTERS_CONST_WITH_LOAD
     else:
         filters = run_group_ica_together(pca_result, brain_maps)
+        spatial_const = constants.SPATIAL_FILTERS_CONST
 
     m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
 
     # +1 for MATLAB compatibility
     wta = np.argmax(filters, axis=1) + 1
-    wta = wta * (m > constants.SPATIAL_FILTERS_CONST)
+    wta = wta * (m > spatial_const)
 
     S = np.zeros_like(filters)
     for i in range(filters.shape[1]):
         # +1 for MATLAB compatibility
         S[:, i] = (wta == i + 1).astype(float)
+    import scipy.io
+    scipy.io.savemat('./spatial_filters.m', {'spatial': S})
     return S
