@@ -111,11 +111,19 @@ def fsl_normalize(x, dim=None):
         elif x.shape[1] > 1:
             dim = 1
 
+    print("x.shape", x.shape)
+    print("dim", dim)
     dims = x.shape
+    print("dims", dims)
     dim_size = dims[dim]
+    print("dims", dims)
     dim_rep = np.ones([len(dims)])
     dim_rep[dim] = dim_size
+    print("dim rep:", dim_rep)
 
+
+    print("mean shape:", np.mean(x, dim).shape)
+    print(np.tile(np.mean(x, dim), dim_rep.astype(dtype=int)))
     x = x - np.tile(np.mean(x, dim), dim_rep.astype(dtype=int))
     x = x / np.tile(np.std(x, axis=dim, ddof=1), dim_rep.astype(dtype=int))
 

@@ -279,6 +279,9 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
         T = np.linalg.pinv(ROIS) @ W
         # CORRELATION COEFFICIENT
         normalized_T = sklearn.preprocessing.normalize(T, axis=1)
+        # TODO(loya) theres a problem with the shape of the mean here.
+        # normalized_T = utils.utils.fsl_normalize(T, 1)
+        # normalized_W = utils.utils.fsl_normalize(np.transpose(W), 0)
         normalized_W = sklearn.preprocessing.normalize(np.transpose(W), axis=0)
         F = normalized_T @ normalized_W
 

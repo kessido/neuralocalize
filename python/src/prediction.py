@@ -48,14 +48,7 @@ class FeatureExtractor:
         features = np.array(features)
 
         # TODO(kess) check if this doesn't just return the same result as scaling by the whole thing.
-        # self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(features[:, self.ctx_indices])
-        flattened_ctx_features = utils.utils.flatten_features_for_scale(features[:, self.ctx_indices])
-        flattened_sub_ctx_features = utils.utils.flatten_features_for_scale(features[:, self.sub_ctx_indices])
-
-        self.scaler_ctx = sklearn.preprocessing.StandardScaler().fit(flattened_ctx_features)
-        self.scaler_sub_ctx = sklearn.preprocessing.StandardScaler().fit(flattened_sub_ctx_features)
-
-        features = self._scale(features)
+        features = self._scale_replace(features)
 
         self._add_features_to_subjects(subjects, features)
 
@@ -63,6 +56,20 @@ class FeatureExtractor:
         for subject, feature in zip(subjects, features):
             subject.features_extractor_uuid = self.uuid
             subject.features = feature
+
+    def _scale_replace(self, features):
+
+        print("features before transpose:", features.shape)
+        features = np.transpose(features, [1, 0, 2])
+        print("features after:", features.shape)
+        print("SHAPE:", features[self.ctx_indices, :, :].shape)
+        ctx_features = features[self.ctx_indices, :, :]
+        sub_ctx_features = features[self.sub_ctx_indices, :, :]
+        normalized_ctx_features = utils.utils.fsl_normalize(ctx_features)
+        normalized_sub_ctx_features = utils.utils.fsl_normalize(sub_ctx_features)
+        features[self.ctx_indices, :, :] = normalized_ctx_features
+        features[self.sub_ctx_indices, :, :] = normalized_sub_ctx_features
+        return features
 
     def _scale(self, subjects_features):
         """Scale the subject features using constant scaling factor.
@@ -111,8 +118,12 @@ class FeatureExtractor:
         :return: The subjects' features.
         """
         if load_feature_extraction:
-            return np.transpose(
-                scipy.io.loadmat(feature_extraction_path)['feature_ext_result'])
+            features, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
+                r'..\test_resources\100307_RFMRI_nosmoothing.dtseries.nii'
+            )
+            res = [np.transpose(features)]
+            # return np.transpose(
+            #     scipy.io.loadmat(feature_extraction_path)['feature_ext_result'])
 
         else:
             res = [None for _ in range(len(subjects))]
@@ -130,7 +141,6 @@ class FeatureExtractor:
             subjects = needed_subjects
 
             if len(subjects) > 0:
-                # # TODO(loya) return to this
                 feature_extraction.run_dual_regression(self._get_or_create_left_right_hemisphere_data(),
                                                        self.default_brain_map, subjects)
 
@@ -160,7 +170,7 @@ class Predictor:
                         and combine them as their group only predictors.
         """
         self.betas = None
-        self.spatial_features = feature_extraction.get_spatial_filters(pca_result, brain_maps)
+        self.spatial_filters = feature_extraction.get_spatial_filters(pca_result, brain_maps)
 
     def _get_beta(self, subject_features, subject_task):
         """Get the prediction betas from psudo-inverse of ((beta @ [1 subject_features] = subject_task)).
@@ -170,11 +180,12 @@ class Predictor:
         :return: The subject betas.
         """
         task = subject_task
-        subject_features = sklearn.preprocessing.normalize(subject_features)
+        # TODO(loya) do we get this before or after the transposition?
+        subject_features = utils.utils.fsl_normalize(subject_features)
         betas = np.zeros(
-            (subject_features.shape[1] + 1, self.spatial_features.shape[1]))
-        for j in range(self.spatial_features.shape[1]):
-            ind = self.spatial_features[:, j] > 0
+            (subject_features.shape[1] + 1, self.spatial_filters.shape[1]))
+        for j in range(self.spatial_filters.shape[1]):
+            ind = self.spatial_filters[:, j] > 0
             if np.any(ind):
                 y = task[ind]
                 demeaned_features = sklearn.preprocessing.scale(subject_features[ind], with_std=False)
@@ -197,10 +208,10 @@ class Predictor:
         self.betas = betas
 
     def _predict(self, subject_features):
-        res = np.zeros(self.spatial_features.shape[0])
-        betas_after_transpose = self.betas.transpose([1, 2, 0])
-        for j in range(self.spatial_features.shape[1]):
-            ind = self.spatial_features[:, j] > 0
+        res = np.zeros(self.spatial_filters.shape[0])
+        betas_after_transpose = self.betas.transpose([1, 2, 0])  # TODO(loya) added the transposition to the scaling
+        for j in range(self.spatial_filters.shape[1]):
+            ind = self.spatial_filters[:, j] > 0
             if np.any(ind):
                 demeaned_features = sklearn.preprocessing.scale(subject_features[ind], with_std=False)
                 x = utils.utils.add_ones_column_to_matrix(demeaned_features)
@@ -266,14 +277,16 @@ class Localizer:
             predictor.fit(subjects_features, subjects_task)
         self._predictor = predictor
 
-    def fit(self, subjects, subjects_task):
+    def fit(self, subjects, subjects_task, load_feature_extraction=False,
+            feature_extraction_path=''):
         """Fit the current loaded model on the given data.
 
         :param subjects: The subject to fit on.
         :param subjects_task: The task result of each subject.
         :return:
         """
-        subjects_feature = map(self._feature_extractor.extract, subjects)
+        subjects_feature = self._feature_extractor.extract(subjects, load_feature_extraction=load_feature_extraction,
+                                                           feature_extraction_path=feature_extraction_path)
         self._predictor.fit(subjects_feature, subjects_task)
 
     def predict(self, subject, load_feature_extraction=False,
@@ -283,6 +296,7 @@ class Localizer:
         :param subject: The subject to predict his task results.
         :return: The task result prediction.
         """
+        print("load_feature_extraction?", load_feature_extraction)
         features = self._feature_extractor.extract(subject, load_feature_extraction=load_feature_extraction,
                                                    feature_extraction_path=feature_extraction_path)
         res = self._predictor.predict(features)
