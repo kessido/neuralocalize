@@ -8,8 +8,8 @@ import scipy.signal
 import sklearn
 import sklearn.decomposition
 
-import utils.cifti_utils
 import constants
+import utils.cifti_utils
 import utils.utils as util
 from constants import ICA_FUCKING_CONST, dtype
 
@@ -25,7 +25,7 @@ def ica_with_threshold(image, num_ic, threshold):
     return ica_result * tile_res
 
 
-def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_ic=40, N=91282):
+def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_ic=40, N=91282, load_ica_result=False):
     # TODO num_ic, N, consts: figure out and rename.
     """Runs a group ICA for each hemisphere separately
     :param left_hemisphere_data:
@@ -35,6 +35,12 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     :param threshold:
     :return:
     """
+    if load_ica_result:
+        res, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
+            r'..\test_resources\ica_both_lowdim.dtseries.nii'
+        )
+        return res.transpose()
+
     print("Running Group ICA on each hemisphere separately.")
     # TODO (Itay) cifti_image to left_hemisphere_data and right_hemisphere_data
     left_hemisphere_data = cifti_extract_data(cifti_image, BM, 'L')
@@ -265,21 +271,20 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
     :return: A dictionary from a subject to its correlation coeff.
     """
     print("Running Get Semi-Dense Connectome")
-    normalizer = utils.utils.Normalizer()
     for subject in subjects:
         W = []
         ROIS = np.concatenate([subject.left_right_hemisphere_data, semi_dense_connectome_data], axis=1)
         for session in subject.sessions:
             scaled = utils.utils.fsl_demean(session.cifti)
-            scaled = normalizer.fsl_variance_normalize(scaled)
+            scaled = utils.utils.Normalizer.fsl_variance_normalize(scaled)
             scaled = scaled.transpose()
             W.append(scaled)
         W = np.concatenate(W, axis=1)
         # MULTIPLE REGRESSION
         T = np.linalg.pinv(ROIS) @ W
         # CORRELATION COEFFICIENT
-        normalized_T = normalizer.fit(T, 1)
-        normalized_W = normalizer.fit(np.transpose(W), 0)
+        normalized_T = utils.utils.Normalizer(1).fit_transform(T)
+        normalized_W = utils.utils.Normalizer(0).fit_transform(np.transpose(W))
         F = normalized_T @ normalized_W
         subject.correlation_coefficient = F
 

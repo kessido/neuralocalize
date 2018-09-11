@@ -1,3 +1,5 @@
+import traceback
+
 import numpy as np
 
 import constants
@@ -5,7 +7,7 @@ import localize
 import prediction
 import utils.cifti_utils
 import utils.utils as util
-import traceback
+
 
 class Args():
     def __init__(self, input_dir, task_filename, task_ordered_subjects_filename):
@@ -36,13 +38,11 @@ def dummy_test_localizer_run():
 
     args = Args(r'../test_resources/', 'AllSubjects_001.dtseries.nii', 'subjects.txt')
     tasks = localize.load_subjects_task(args, subjects)
-    model = prediction.Localizer(subjects, subjects_task=tasks, pca_result=pca_result, load_feature_extraction=True,
-                                 load_ica_result=True)
+    model = prediction.Localizer(subjects, pca_result=pca_result)
+    model.fit(subjects, tasks)
     model.save_to_file('model.pcl.gz')
-    # model = localize.Localizer.load_from_file(' model.pcl.gz')
-    model.fit(subjects, tasks, load_feature_extraction=True)
-    res = model.predict(subjects, load_feature_extraction=True,
-                        feature_extraction_path='feature_ext_result.mat')
+    model = localize.Localizer.load_from_file('model.pcl.gz')
+    res = model.predict(subjects)
     utils.cifti_utils.save_cifti(res, 'res.dtseries.nii')
     print('Norm:', np.linalg.norm(tasks[0] - res[0]))
 
@@ -65,8 +65,7 @@ try:
 except:
     traceback.print_exc()
 
-
 try:
-    pass#dummy_test_feature_extraction_run()
+    pass  # dummy_test_feature_extraction_run()
 except:
     traceback.print_exc()

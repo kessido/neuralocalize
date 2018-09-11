@@ -10,7 +10,6 @@ import sklearn
 import constants
 import utils.cifti_utils
 import utils.utils
-from constants import dtype
 # TODO(loya) add full description.
 from prediction import Localizer, FeatureExtractor
 
@@ -63,7 +62,7 @@ PARSER.add_argument('--load_feature_extraction', action='store_true',
                     help='Defaults to False. Set to True if you want to run with feature extraction,'
                          ' otherwise loads the result.')
 PARSER.add_argument('--feature_extraction_result', default='../test_resources/feature_ext_result.mat',
-                    help='Optional. Load iterative PCA result from this location.')
+                    help='Optional. Load the features from the template path')
 PARSER.add_argument('--task_filename', default=constants.DEFAULT_TASK_FILENAME,
                     help='Name of the task files. Stored in {base_dir}/Tasks')
 PARSER.add_argument('--task_ordered_subjects_filename', default=constants.DEFAULT_TASK_ORDERED_SUBJ_FILE,
@@ -151,7 +150,7 @@ def train_model(subjects, subjects_task, args, pca_result=None, feature_extracto
     :return: A localizer model
     """
     # todo(kess) this is where you change the model type.
-    return Localizer(subjects, subjects_task, pca_result=pca_result,
+    return Localizer(subjects, pca_result=pca_result,
                      load_feature_extraction=args.load_feature_extraction,
                      feature_extraction_path=args.feature_extraction_result, feature_extractor=feature_extractor)
 
