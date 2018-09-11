@@ -213,7 +213,6 @@ class Predictor:
         subject_features = utils.utils.Normalizer().fit_transform(subject_features)
         betas = np.zeros(
             (subject_features.shape[1] + 1, self._spatial_filters.shape[1]))
-        print("betas shape:", betas.shape)
         for j in range(self._spatial_filters.shape[1]):
             ind = self._spatial_filters[:, j] > 0
             if np.any(ind):

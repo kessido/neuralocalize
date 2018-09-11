@@ -1,3 +1,4 @@
+import numpy as np
 import traceback
 
 import feature_extraction as feature_extraction
@@ -67,18 +68,28 @@ def get_semi_dense_connectome_test():
     sc_cifti_image, _ = load_cifti_brain_data_from_file(
         r'..\test_resources\SC_clusters.dtseries.nii')
 
+    # sc_cifti_image = np.ones([2, 4])
     # TODO(loya) validate these are the actual files.
     subjects = [Subject('noam',
+                        left_right_hemisphere_data_path=r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii',
                         sessions_nii_paths=[
                             r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
                             r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
                             r'..\test_resources\rfMRI_REST2_LR\rfMRI_REST2_LR_Atlas_hp2000_clean.dtseries.nii',
                             r'..\test_resources\rfMRI_REST2_RL\rfMRI_REST2_RL_Atlas_hp2000_clean.dtseries.nii'])]
 
-    abstract_test(
-        # TODO(loya) this is disgusting, please fix.
-        lambda: feature_extraction.get_semi_dense_connectome(sc_cifti_image.transpose(), subjects)
-        , r'..\test_resources\100307_RFMRI_nosmoothing.dtseries.nii')
+    # subjects[0].left_right_hemisphere_data = np.ones([4, 4])
+    # for session in subjects[0].sessions:
+    #     as_line = np.arange(6*4) / 1000
+    #     session.cifti = np.reshape(as_line, [6, 4])
+    #     print("session.cifti:", session.cifti)
+    feature_extraction.get_semi_dense_connectome(sc_cifti_image.transpose(), subjects)
+    ret = subjects[0].correlation_coefficient
+
+    actual_output, _ = load_cifti_brain_data_from_file(r'..\test_resources\noam_results\100307_RFMRI_nosmoothing.dtseries.nii')
+    print("Diff norm:", np.linalg.norm(ret - actual_output))
+    print("RET shape:", ret.shape, "actual shape:", actual_output.shape)
+    print("RESULT:", np.allclose(actual_output, ret))
 
 
 def run_dual_regression_test():
@@ -96,24 +107,28 @@ def run_dual_regression_test():
         ])]
 
     # TODO(loya) this is out of date. The test doesn't return value, but updates the .left_right... field in subjects.
-    abstract_test(
-        lambda: feature_extraction.run_dual_regression(dt.transpose(), brain_models, subjects)
-        , r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii')
+    feature_extraction.run_dual_regression(dt.transpose(), brain_models, subjects)
+    print(subjects[0].left_right_hemisphere_data)
+    # abstract_test(
+    #     lambda: feature_extraction.run_dual_regression(dt.transpose(), brain_models, subjects)
+    #     , r'..\test_resources\100307_DR2_nosmoothing.dtseries.nii')
 
 
-try:
-    run_group_ica_together_test()
-except Exception:
-    traceback.print_exc()
-try:
-    run_group_ica_separately_test()
-except Exception:
-    traceback.print_exc()
-try:
-    get_semi_dense_connectome_test()
-except Exception:
-    traceback.print_exc()
-try:
-    run_get_subcortical_parcellation_test()
-except Exception:
-    traceback.print_exc()
+# try:
+#     run_group_ica_together_test()
+# except Exception:
+#     traceback.print_exc()
+# try:
+#     run_group_ica_separately_test()
+# except Exception:
+#     traceback.print_exc()
+# try:
+#     get_semi_dense_connectome_test()
+# except Exception:
+#     traceback.print_exc()
+# try:
+#     run_get_subcortical_parcellation_test()
+# except Exception:
+#     traceback.print_exc()
+# run_dual_regression_test()
+run_dual_regression_test()
