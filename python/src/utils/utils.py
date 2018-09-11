@@ -178,53 +178,11 @@ class Normalizer(object):
     def fsl_variance_normalize(y, n=30, threshold_a=2.3, threshold_b=0.001):
         k = min(n, min(y.shape) - 1)
         u, s, v = scipy.sparse.linalg.svds(y, k)
-        # u = np.array([[0, 1], [1, 0]])
-        # s = np.array([[1, 0], [0, 1]])
-        # v = np.array([[0,1],[1,0]])
+        s = scipy.linalg.diagsvd(s, k, k)
+        v = v.transpose()
 
-        print("u:", u)
-        print("S:", s)
-        print("v:", v)
         threshold = threshold_a * np.std(v, ddof=1)
         v[np.abs(v) < threshold] = 0
 
         stds = np.maximum(np.std(y - u @ s @ np.transpose(v), ddof=1, axis=0), threshold_b)
         return y / np.tile(stds, (y.shape[0], 1)) # this might need to be zero and not 1
-
-    @staticmethod
-    def fsl_svd(x, n):
-        if x.shape[0] < x.shape[1]:
-            if n < x.shape[0]:
-                eigs, d = scipy.sparse.linalg.eigs(x @ x.transpose(), n)
-                u = np.zeros([len(eigs), len(eigs)])
-                u[np.diag_indices_from(u)] = eigs
-            else:
-                eigs, d = np.linalg.eig(x @ x.transpose())
-                u = np.zeros([len(eigs), len(eigs)])
-                u[np.diag_indices_from(u)] = eigs
-                u = np.fliplr(u)
-                d = np.flipud(np.fliplr(d))
-            s = np.sqrt(np.abs(d))
-            v = x.tranpose() @ (u @ np.diag((1 / np.diag(s))))
-        else:
-            if n < x.shape[1]:
-                print("XTX:", np.ndim(x.transpose() @ x))
-                eigs, v = scipy.sparse.linalg.eigs(x.transpose() @ x, k=n)
-                d = np.zeros([len(eigs), len(eigs)])
-
-                d[np.diag_indices_from(d)] = eigs
-                print("V[:,0]:", v[:, 0])
-                print("d:", d)
-            else:
-                print("4")
-                eigs, v = np.linalg.eig(x.transpose() @ x)
-                d = np.zeros([len(eigs), len(eigs)])
-                d[np.diag_indices_from(d)] = eigs
-                v = np.fliplr(v)
-                d = np.flipud(np.fliplr(d))
-            s = np.sqrt(np.abs(d))
-            u = x @ (v @ np.diag((1 / np.diag(s))))
-        print("u:", u)
-        print("v:", v)
-        print("s:", s)
-        return u, s, v

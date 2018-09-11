@@ -132,6 +132,7 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
     :param size_of_g:
     """
     print("Running Dual Regression.")
+    print('left right...', left_right_hemisphere_data)
     single_hemisphere_shape = left_right_hemisphere_data.shape[1]
     G = np.zeros([size_of_g, single_hemisphere_shape * 2])
     hemis = np.zeros([size_of_g, single_hemisphere_shape * 2])
@@ -140,20 +141,30 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
     G[BM[1].data_indices, single_hemisphere_shape: 2 * single_hemisphere_shape] = left_right_hemisphere_data[
                                                                                   BM[1].data_indices, :]
 
+    print("G[0]:", G[0])
     hemis[BM[0].data_indices, :single_hemisphere_shape] = 1
     hemis[BM[1].data_indices, single_hemisphere_shape: 2 * single_hemisphere_shape] = 1
 
     g_pseudo_inverse = np.linalg.pinv(G)
+    print('g pseudo inverse', g_pseudo_inverse[0])
     for subject in subjects:
         subject_data = []
         for session in subject.sessions:
-            normalized_cifti = sklearn.preprocessing.scale(session.cifti.transpose(), with_mean=False)
+            # normalized_cifti = sklearn.preprocessing.scale(session.cifti.transpose(), with_mean=False)
+            normalized_cifti = utils.utils.Normalizer.fsl_variance_normalize(session.cifti.transpose())
+            print("normalized cifti shape:", normalized_cifti.shape)
+            print("normalized cifti[0]:", normalized_cifti[0])
             deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti)))
+            print("detrended data[0]:", deterended_data[0])
+            print("detrended data.shape:", deterended_data.shape)
             subject_data.append(deterended_data)
         subject_data = np.concatenate(subject_data, axis=1)
         T = g_pseudo_inverse @ subject_data
+        print('T shape:', T.shape)
+        print("T[0]:", T[0])
 
         t = util.fsl_glm(np.transpose(T), np.transpose(subject_data))
+        print("fsl glm:", t[0])
         subject.left_right_hemisphere_data = np.transpose(t) * hemis
 
 
@@ -265,26 +276,22 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
     :return: A dictionary from a subject to its correlation coeff.
     """
     print("Running Get Semi-Dense Connectome")
+    normalizer = utils.utils.Normalizer()
     for subject in subjects:
         W = []
         ROIS = np.concatenate([subject.left_right_hemisphere_data, semi_dense_connectome_data], axis=1)
-        scaled = None
         for session in subject.sessions:
-            # TODO(loya) this transpose was added as a patch, when fixed completely change back.
-            scaled = sklearn.preprocessing.scale(session.cifti).transpose()
+            scaled = utils.utils.fsl_demean(session.cifti)
+            scaled = normalizer.fsl_variance_normalize(scaled)
+            scaled = scaled.transpose()
             W.append(scaled)
-        # TODO(loya) this might cause a bug.
         W = np.concatenate(W, axis=1)
         # MULTIPLE REGRESSION
         T = np.linalg.pinv(ROIS) @ W
         # CORRELATION COEFFICIENT
-        normalized_T = sklearn.preprocessing.normalize(T, axis=1)
-        # TODO(loya) theres a problem with the shape of the mean here.
-        # normalized_T = utils.utils.fsl_normalize(T, 1)
-        # normalized_W = utils.utils.fsl_normalize(np.transpose(W), 0)
-        normalized_W = sklearn.preprocessing.normalize(np.transpose(W), axis=0)
+        normalized_T = normalizer.fit(T, 1)
+        normalized_W = normalizer.fit(np.transpose(W), 0)
         F = normalized_T @ normalized_W
-
         subject.correlation_coefficient = F
 
 
@@ -314,6 +321,4 @@ def get_spatial_filters(pca_result, brain_maps, load_ica=False):
     for i in range(filters.shape[1]):
         # +1 for MATLAB compatibility
         S[:, i] = (wta == i + 1).astype(float)
-    import scipy.io
-    scipy.io.savemat('./spatial_filters.m', {'spatial': S})
     return S
