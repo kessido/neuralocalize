@@ -206,7 +206,8 @@ class Normalizer(object):
         x = x / np.tile(self.std, dim_rep.astype(dtype=int))
 
         x = x / np.sqrt(dim_size - 1)
-        # TODO(loya) add the isnan.
+        x[np.isnan(x)] = 0
+        x[np.isinf(x)] = 0
         return x
 
     @staticmethod
