@@ -300,7 +300,7 @@ def get_spatial_filters(pca_result, brain_maps, load_ica=False):
         filters = run_group_ica_together(pca_result, brain_maps)
         spatial_const = constants.SPATIAL_FILTERS_CONST
 
-    m = np.amax(filters, axis=1)  # TODO(loya) validate cdata is the same.
+    m = np.amax(filters, axis=1)
 
     # +1 for MATLAB compatibility
     wta = np.argmax(filters, axis=1) + 1
