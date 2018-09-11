@@ -36,10 +36,10 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     :return:
     """
     if load_ica_result:
+        print("Loading ICA in run_group_ica_separately")
         res, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
-            r'..\test_resources\ica_both_lowdim.dtseries.nii'
-        )
-        return res.transpose()
+            r'..\test_resources\ica_LR_MATCHED.dtseries.nii')
+        return res
 
     print("Running Group ICA on each hemisphere separately.")
     # TODO (Itay) cifti_image to left_hemisphere_data and right_hemisphere_data
@@ -154,7 +154,8 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
         for session in subject.sessions:
             inp = session.cifti
             normalized_cifti = utils.utils.Normalizer.fsl_variance_normalize(inp).transpose()
-            deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti), type='constant', axis=0))
+            deterended_data = np.transpose(
+                scipy.signal.detrend(np.transpose(normalized_cifti), type='constant', axis=0))
             subject_data.append(deterended_data)
         subject_data = np.concatenate(subject_data, axis=1)
         T = g_pseudo_inverse @ subject_data
@@ -163,8 +164,9 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
         subject.left_right_hemisphere_data = np.transpose(t) * hemis
 
 
-def get_subcortical_parcellation(cifti_image, brain_maps):
+def get_subcortical_parcellation(cifti_image, brain_maps, load_ica_result=False):
     """Get sub-cortical parcellation using atlas definitions and current data.
+    :param load_ica_result:
     :return: (no. voxel, cortical parcellation parts)
     """
 
@@ -251,6 +253,12 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
         return res
 
     print("Getting Subcortical parcellation.")
+    if load_ica_result:
+        print("Loading Subcortical parcellation from file.")
+        res, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
+            r'..\test_resources\SC_clusters.dtseries.nii')
+        return res.transpose()
+
     sub_cortex_clusters = []
     for current_map in brain_maps:
         x = label_to_function(current_map.brain_structure_name)(cifti_image, current_map)
@@ -296,6 +304,8 @@ def get_spatial_filters(pca_result, brain_maps, load_ica=False):
     print("Getting Spatial Filters.")
     spatial_const = None
     if load_ica:
+        print("Loading both ICA in run_group_ica_separately")
+
         filters, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
             r'..\test_resources\ica_both_lowdim.dtseries.nii'
         )

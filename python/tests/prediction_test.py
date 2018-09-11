@@ -38,7 +38,11 @@ def dummy_test_localizer_run():
 
     args = Args(r'../test_resources/', 'AllSubjects_001.dtseries.nii', 'subjects.txt')
     tasks = localize.load_subjects_task(args, subjects)
-    model = prediction.Localizer(subjects, pca_result=pca_result)
+    model = prediction.Localizer(
+        subjects, pca_result=pca_result,
+        load_ica_result=True,
+        load_feature_extraction=True,
+        feature_extraction_path_template=r'..\test_resources\%s_RFMRI_nosmoothing.dtseries.nii')
     model.fit(subjects, tasks)
     model.save_to_file('model.pcl.gz')
     model = localize.Localizer.load_from_file('model.pcl.gz')

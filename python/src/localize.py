@@ -150,9 +150,11 @@ def train_model(subjects, subjects_task, args, pca_result=None, feature_extracto
     :return: A localizer model
     """
     # todo(kess) this is where you change the model type.
-    return Localizer(subjects, pca_result=pca_result,
-                     load_feature_extraction=args.load_feature_extraction,
-                     feature_extraction_path=args.feature_extraction_result, feature_extractor=feature_extractor)
+    localizer = Localizer(subjects, pca_result=pca_result,
+                          load_feature_extraction=args.load_feature_extraction,
+                          feature_extraction_path_template=args.feature_extraction_result, feature_extractor=feature_extractor)
+    localizer.fit(subjects, subjects_task)
+    return localizer
 
 
 def get_benchmark(localizer, subjects, subjects_task):

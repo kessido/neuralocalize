@@ -32,6 +32,7 @@ def load_cifti_brain_data_from_file(nii_path):
     :param nii_path: A path to a nii file
     :return: numpy matrix containing the image data, brain models iterable
     """
+    print("Loading cifti file:", nii_path)
     nib_data = nib.load(nii_path)
     return np.array(nib_data.dataobj), [BrainMap(i) for i in nib_data.header.matrix.get_index_map(1).brain_models]
 

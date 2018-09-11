@@ -17,8 +17,9 @@ class FeatureExtractor:
     """A class warping the scaling and feature extraction methods.
     """
 
-    # todo add option to create the pca results.
-    def __init__(self, pca_result=None, should_load_features_from_file=False,
+    # todo(kess) add option to create the pca results.
+    def __init__(self, pca_result=None, is_load_features_from_file=False,
+                 load_ica_result=False,
                  file_path_template=r'..\test_resources\%s_RFMRI_nosmoothing.dtseries.nii',
                  sample_file_path=r'..\resources\example.dtseries.nii'):
         """ Init the Feature Extractor from subjects and pca.
@@ -27,7 +28,8 @@ class FeatureExtractor:
         :param pca_result: the PCA to use. If not provided will use it's own pca.
         :param pca_result: the PCA to use.
         """
-        self._should_load_features_from_file = should_load_features_from_file
+        self._should_load_features_from_file = is_load_features_from_file
+        self._load_ica_result = load_ica_result
         self._file_path_template = file_path_template
         self._should_calculate_pca = pca_result is None
         self._semi_dense_connectome_data = None
@@ -66,7 +68,7 @@ class FeatureExtractor:
         :param y: For compatibility.
         :return: The subjects' features.
         """
-        self.fit(subjects, y)
+        self.fit(subjects)
         return self.transform(subjects)
 
     @staticmethod
@@ -104,14 +106,13 @@ class FeatureExtractor:
     def _get_or_create_semi_dense_connectome_data(self):
         if self._semi_dense_connectome_data is None:
             self._semi_dense_connectome_data = feature_extraction.get_subcortical_parcellation(
-                self._pca_result, self._default_brain_map)
+                self._pca_result, self._default_brain_map, load_ica_result=self._load_ica_result)
         return self._semi_dense_connectome_data
 
-    def _get_or_create_left_right_hemisphere_data(self, load_ica_result=False):
+    def _get_or_create_left_right_hemisphere_data(self):
         if self._left_right_hemisphere_data is None:
             self._left_right_hemisphere_data = feature_extraction.run_group_ica_separately(
-                self._pca_result, self._default_brain_map, load_ica_result
-            ).transpose()
+                self._pca_result, self._default_brain_map, load_ica_result=self._load_ica_result).transpose()
         return self._left_right_hemisphere_data
 
     def _load_features_from_file(self, subjects):
@@ -259,7 +260,7 @@ class Predictor:
         :return: y,
                     [n_subjects, n_results] Matrix like object containing the task result prediction.
         """
-        if self._is_fitted is None:
+        if not self._is_fitted:
             raise BrokenPipeError("Cannot predict before the model was trained!")
         return np.array([self._predict(subject_features) for subject_features in subjects_features])
 
@@ -270,7 +271,7 @@ class Localizer:
 
     def __init__(self, subjects, pca_result=None, predictor=None,
                  load_feature_extraction=False,
-                 feature_extraction_path=None, feature_extractor=None, load_ica_result=False):
+                 feature_extraction_path_template=None, feature_extractor=None, load_ica_result=False):
         """Initialize a localizer object
 
         :param subjects: The subject to train on.
@@ -291,8 +292,9 @@ class Localizer:
 
         if feature_extractor is None:
             feature_extractor = FeatureExtractor(pca_result,
-                                                 should_load_features_from_file=load_feature_extraction,
-                                                 file_path_template=feature_extraction_path)
+                                                 is_load_features_from_file=load_feature_extraction,
+                                                 file_path_template=feature_extraction_path_template,
+                                                 load_ica_result=load_ica_result)
 
         self._feature_extractor = feature_extractor
 
