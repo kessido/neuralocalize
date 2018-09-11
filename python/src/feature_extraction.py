@@ -257,7 +257,7 @@ def get_subcortical_parcellation(cifti_image, brain_maps, load_ica_result=False)
         print("Loading Subcortical parcellation from file.")
         res, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
             r'..\test_resources\SC_clusters.dtseries.nii')
-        return res.transpose()
+        return res
 
     sub_cortex_clusters = []
     for current_map in brain_maps:

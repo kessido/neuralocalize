@@ -2,7 +2,6 @@ import traceback
 
 import numpy as np
 
-import constants
 import localize
 import prediction
 import utils.cifti_utils
@@ -20,7 +19,7 @@ def dummy_test_feature_extraction_run():
     pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
         '../test_resources/GROUP_PCA_rand200_RFMRI.dtseries.nii')
     subjects = [util.Subject(
-        'noam',
+        '100307',
         sessions_nii_paths=[
             r'..\test_resources\rfMRI_REST1_LR\rfMRI_REST1_LR_Atlas_hp2000_clean.dtseries.nii',
             r'..\test_resources\rfMRI_REST1_RL\rfMRI_REST1_RL_Atlas_hp2000_clean.dtseries.nii',
@@ -41,7 +40,7 @@ def dummy_test_localizer_run():
     model = prediction.Localizer(
         subjects, pca_result=pca_result,
         load_ica_result=True,
-        load_feature_extraction=True,
+        load_feature_extraction=False,
         feature_extraction_path_template=r'..\test_resources\%s_RFMRI_nosmoothing.dtseries.nii')
     model.fit(subjects, tasks)
     model.save_to_file('model.pcl.gz')
@@ -49,6 +48,7 @@ def dummy_test_localizer_run():
     res = model.predict(subjects)
     utils.cifti_utils.save_cifti(res, 'res.dtseries.nii')
     print('Norm:', np.linalg.norm(tasks[0] - res[0]))
+
 
 def loading_feature_ext_get_spatial_filters():
     subjects = [util.Subject(
@@ -61,11 +61,13 @@ def loading_feature_ext_get_spatial_filters():
         ])]
     pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(
         '../test_resources/GROUP_PCA_rand200_RFMRI.dtseries.nii')
-    prediction.FeatureExtractor(subjects, pca_result, r'..\resources\example.dtseries.nii', load_feature_extraction=True)
+    # prediction.FeatureExtractor(subjects, pca_result, r'..\resources\example.dtseries.nii',
+    #                             load_feature_extraction=True)
+
 
 try:
-    # dummy_test_localizer_run()
-    loading_feature_ext_get_spatial_filters()
+    dummy_test_localizer_run()
+    # loading_feature_ext_get_spatial_filters()
 except:
     traceback.print_exc()
 
