@@ -4,7 +4,6 @@ import numpy as np
 # TODO(loya) make sure and remove these two
 import numpy.matlib as matlib
 import scipy.io
-import scipy.io
 import scipy.signal
 import sklearn
 import sklearn.decomposition
@@ -138,7 +137,6 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
     :param size_of_g:
     """
     print("Running Dual Regression.")
-    print('left right...', left_right_hemisphere_data)
     single_hemisphere_shape = left_right_hemisphere_data.shape[1]
     G = np.zeros([size_of_g, single_hemisphere_shape * 2])
     hemis = np.zeros([size_of_g, single_hemisphere_shape * 2])
@@ -147,30 +145,21 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
     G[BM[1].data_indices, single_hemisphere_shape: 2 * single_hemisphere_shape] = left_right_hemisphere_data[
                                                                                   BM[1].data_indices, :]
 
-    print("G[0]:", G[0])
     hemis[BM[0].data_indices, :single_hemisphere_shape] = 1
     hemis[BM[1].data_indices, single_hemisphere_shape: 2 * single_hemisphere_shape] = 1
 
     g_pseudo_inverse = np.linalg.pinv(G)
-    print('g pseudo inverse', g_pseudo_inverse[0])
     for subject in subjects:
         subject_data = []
         for session in subject.sessions:
-            # normalized_cifti = sklearn.preprocessing.scale(session.cifti.transpose(), with_mean=False)
-            normalized_cifti = utils.utils.Normalizer.fsl_variance_normalize(session.cifti.transpose())
-            print("normalized cifti shape:", normalized_cifti.shape)
-            print("normalized cifti[0]:", normalized_cifti[0])
-            deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti)))
-            print("detrended data[0]:", deterended_data[0])
-            print("detrended data.shape:", deterended_data.shape)
+            inp = session.cifti
+            normalized_cifti = utils.utils.Normalizer.fsl_variance_normalize(inp).transpose()
+            deterended_data = np.transpose(scipy.signal.detrend(np.transpose(normalized_cifti), type='constant', axis=0))
             subject_data.append(deterended_data)
         subject_data = np.concatenate(subject_data, axis=1)
         T = g_pseudo_inverse @ subject_data
-        print('T shape:', T.shape)
-        print("T[0]:", T[0])
 
         t = util.fsl_glm(np.transpose(T), np.transpose(subject_data))
-        print("fsl glm:", t[0])
         subject.left_right_hemisphere_data = np.transpose(t) * hemis
 
 
