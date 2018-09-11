@@ -1,5 +1,7 @@
 import itertools
+import warnings
 
+import cifti
 import nibabel as nib
 import numpy as np
 
@@ -35,6 +37,11 @@ def load_cifti_brain_data_from_file(nii_path):
 
 
 def get_cortex_and_sub_cortex_indices(sample_file_path='./example.dtseries.nii'):
+    """Generate two list: The cortex indices and the sub-cortex indices.
+
+    :param sample_file_path: the file path to load from the cortex indices.
+    :return: (cortex indices list, sub-cortex indices list)
+    """
     _, brain_maps = load_cifti_brain_data_from_file(sample_file_path)
     ctx_inds = list(itertools.chain(
         brain_maps[0].data_indices, brain_maps[1].data_indices))
@@ -43,20 +50,33 @@ def get_cortex_and_sub_cortex_indices(sample_file_path='./example.dtseries.nii')
 
 
 def save_cifti(cifti_img, path, series=None, brain_maps=None, sample_file_path='../resources/example.dtseries.nii'):
-    """
+    """Save the cifti image to path.
 
-    :param brain_maps:
-    :param series:
-    :param cifti_img: [91282, n_component]
-    :param path:
-    :param sample_file_path:
-    :return:
+    :param cifti_img: [n_component, 91282] The cifti image to save.
+    :param path: The file path to save the cifti image to.
+    :param series: The time series to use when saving the file.
+                If not provided, create default one which fit the size of the image.
+    :param brain_maps: If provided add this as the BrainMap inside the cifti file.
+                If not take default one from sample file name.
+    :param sample_file_path: An example cifti file
+                that is used to generate the default brain maps if needed.
     """
-    import cifti
-    _, axis = cifti.read(sample_file_path)
+    if not path.endswith('.dtseries.nii'):
+        warnings.warn('Cifti files should be saved with ".dtseries.nii" file extension')
+
     # todo(kessi, itay) need to fit the time series to the actual time series.
+    if series is not None and series.size != cifti_img.shape[0]:
+        warnings.warn(
+            "The series provided in save_cifti under utils.cifti_utils " +
+            "does not match the cifti image size provided: " +
+            f"cifti image shape: {cifti_img.shape}, series size: f{series.size}")
+        series = None
+
     if series is None:
         series = cifti.Series(start=0.0, step=0.72, size=cifti_img.shape[0])
+
     if brain_maps is None:
+        _, axis = cifti.read(sample_file_path)
         brain_maps = axis[1]
+
     cifti.write(path, cifti_img, (series, brain_maps))
