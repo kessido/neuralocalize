@@ -28,13 +28,11 @@ def get_pearson_corr(result_path, org_path):
         a.append(coef_mat[i][len(result)+i])
         b.append(pearsonr(result[i], org[i]))
     the_real_coef = coef_mat[len(result):,:len(result)]
-    print("a:", a)
-    print("b:", b)
-    print("the real coef:", np.diagonal(the_real_coef))
-    return
+    print("the coeffs:", np.diagonal(the_real_coef))
+    print("with p values:", b)
+    print("mean:", np.mean(the_real_coef))
 
 
-
-result_path = 'AllSubjects_001_results.dtseries.nii'
-org_path = 'AllSubjects_001.dtseries.nii'
-print(get_pearson_corr(result_path, org_path))
+result_path = '..\\test_resources\\result_of_ten\\AllSubjects_015_results.dtseries.nii'
+org_path = '..\\test_resources\\Tasks\\AllSubjects_015.dtseries.nii'
+get_pearson_corr(result_path, org_path)
