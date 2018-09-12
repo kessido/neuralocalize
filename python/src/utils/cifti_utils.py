@@ -71,9 +71,10 @@ def save_cifti(cifti_img, path, series=None, brain_maps=None, sample_file_path='
     # todo(kessi, itay) need to fit the time series to the actual time series.
     if series is not None and series.size != cifti_img.shape[0]:
         warnings.warn(
-            "The series provided in save_cifti under utils.cifti_utils " +
-            "does not match the cifti image size provided: " +
-            f"cifti image shape: {cifti_img.shape}, series size: f{series.size}")
+            ("The series provided in save_cifti under utils.cifti_utils " +
+             "does not match the cifti image size provided: " +
+             "cifti image shape: {}, series size: {}").format(cifti_img.shape, series.size)
+        )
         series = None
 
     if series is None:

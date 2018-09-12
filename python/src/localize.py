@@ -56,14 +56,14 @@ PARSER.add_argument('--output_dir', default='./results',
                     ''')  # Todo(loya) decide on output format for the files.
 PARSER.add_argument('--output_filename', default='model.pcl',
                     help='The name to save the output model.')
-PARSER.add_argument('--run_with_pca', action='store_true',
+PARSER.add_argument('--load_pca', action='store_true',
                     help='Defaults to False. Set to True if you want to run with PCA, otherwise loads the result.')
 PARSER.add_argument('--pca_result', default=constants.DEFAULT_PCA_RESULT_PATH,
                     help='Optional. Load iterative PCA result from this location.')
 PARSER.add_argument('--load_feature_extraction', action='store_true',
                     help='Defaults to False. Set to True if you want to loads the result.')
-# PARSER.add_argument('--feature_extraction_result', default='../test_resources/feature_ext_result.mat',
-#                     help='Optional. Load the features from the template path')
+PARSER.add_argument('--feature_extraction_result', default='../test_resources/100307_RFMRI_nosmoothing.dtseries.nii',
+                    help='Optional. Load the features from the template path')
 PARSER.add_argument('--task_filename', default=constants.DEFAULT_TASK_FILENAME,
                     help='Name of the task files. Stored in {base_dir}/Tasks')
 PARSER.add_argument('--number_of_tasks', default=constants.DEFAULT_NUMBER_OF_TASK, type=int,
@@ -245,7 +245,7 @@ def main(ARGS=ARGS):
         print("Loading subjects and tasks.")
         subjects = load_subjects(ARGS)
         pca_result = None
-        if not ARGS.run_with_pca:
+        if ARGS.load_pca:
             pca_result_path = os.path.join(ARGS.input_dir, ARGS.pca_result)
             pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(pca_result_path)
 
