@@ -7,8 +7,8 @@ import uuid
 import numpy as np
 import sklearn.preprocessing
 
+import constants
 import feature_extraction
-import iterative_pca
 import utils.cifti_utils
 import utils.utils
 
@@ -18,9 +18,9 @@ class FeatureExtractor:
     """
 
     # todo(kess) add option to create the pca results.
-    def __init__(self, pca_result=None, is_load_features_from_file=False,
+    def __init__(self, pca_result, is_load_features_from_file=False,
                  load_ica_result=False,
-                 file_path_template=r'..\test_resources\%s_RFMRI_nosmoothing.dtseries.nii',
+                 file_path_template=None,
                  sample_file_path=r'..\resources\example.dtseries.nii'):
         """ Init the Feature Extractor from subjects and pca.
         Create a scaling factor of the cortical and sub cortical parts.
@@ -28,10 +28,10 @@ class FeatureExtractor:
         :param pca_result: the PCA to use. If not provided will use it's own pca.
         :param pca_result: the PCA to use.
         """
+        self._is_fitted = False
         self._should_load_features_from_file = is_load_features_from_file
         self._load_ica_result = load_ica_result
         self._file_path_template = file_path_template
-        self._should_calculate_pca = pca_result is None
         self._semi_dense_connectome_data = None
         self._left_right_hemisphere_data = None
         self._ctx_normalizer = utils.utils.Normalizer()
@@ -41,44 +41,10 @@ class FeatureExtractor:
         _, self._default_brain_map = utils.cifti_utils.load_cifti_brain_data_from_file(sample_file_path)
         self._ctx_indices, self._sub_ctx_indices = utils.cifti_utils.get_cortex_and_sub_cortex_indices(sample_file_path)
 
-    def fit(self, subjects, y=None):
-        """Fit the model scaling to the subjects.
-
-        :param subjects: the subjects to fit on.
-        :param y: For compatibility.
-        """
-        self._uuid = uuid.uuid4()
-        if self._should_calculate_pca:
-            self._pca_result = self._get_pca(subjects)
-        features = self._extract(subjects, False)
-        self._scale_fit(features)
-
-    def transform(self, subjects):
-        """
-
-        :param subjects:
-        :return:
-        """
-        return self._extract(subjects)
-
-    def fit_transform(self, subjects, y=None):
-        """
-
-        :param subjects: The subjects to fit and transform.
-        :param y: For compatibility.
-        :return: The subjects' features.
-        """
-        self.fit(subjects)
-        return self.transform(subjects)
-
-    @staticmethod
-    def _get_pca(subjects):
-        raise NotImplementedError("Calculating PCA Is Not yet supported")
-
     def _add_features_to_subjects(self, subjects, features):
         for subject, feature in zip(subjects, features):
             subject.features_extractor_uuid = self._uuid
-            subject.features_before_scaling = feature
+            subject.features_before_scaling = feature.copy()
 
     def _get_features_for_scaling_ctx_sub_ctx(self, subjects_features):
         subjects_features = np.transpose(subjects_features, [1, 0, 2])
@@ -92,15 +58,10 @@ class FeatureExtractor:
         subjects_features[self._sub_ctx_indices, :, :] = sub_ctx_features
         return np.transpose(subjects_features, [1, 0, 2])
 
-    def _scale_fit(self, subjects_features):
-        ctx_features, sub_ctx_features = self._get_features_for_scaling_ctx_sub_ctx(subjects_features)
-        self._ctx_normalizer.fit(ctx_features)
-        self._sub_ctx_normalizer.fit(sub_ctx_features)
-
     def _scale_transform(self, subjects_features):
         ctx_features, sub_ctx_features = self._get_features_for_scaling_ctx_sub_ctx(subjects_features)
-        ctx_features = self._ctx_normalizer.transform(ctx_features)
-        sub_ctx_features = self._sub_ctx_normalizer.transform(sub_ctx_features)
+        ctx_features = self._ctx_normalizer.fit_transform(ctx_features)
+        sub_ctx_features = self._sub_ctx_normalizer.fit_transform(sub_ctx_features)
         return self._set_features_for_scaling_ctx_sub_ctx(subjects_features, ctx_features, sub_ctx_features)
 
     def _get_or_create_semi_dense_connectome_data(self):
@@ -141,17 +102,16 @@ class FeatureExtractor:
         subjects_not_loaded_indices = []
         for i, subject in enumerate(subjects):
             if subject.features_extractor_uuid == self._uuid:
-                res.append(subject.features_before_scaling)
+                res.append(subject.features_before_scaling.copy())
             else:
                 res.append(None)
                 subjects_not_loaded_indices.append(i)
         return res, subjects_not_loaded_indices
 
-    def _extract(self, subjects, with_scaling=True):
+    def transform(self, subjects):
         """Extract the subject features.
 
         :param subjects: The subjects to extract their features [n_subjects, n_data].
-        :param with_scaling:
         :return: The subjects' features.
         """
         print("Extracting features.")
@@ -171,11 +131,10 @@ class FeatureExtractor:
 
                 for i, subject_result in zip(subjects_not_loaded_indices, feature_extraction_res):
                     res[i] = subject_result
-        res = np.array(res)
+        res = np.array(res, dtype=constants.DTYPE)
         self._add_features_to_subjects(subjects, res)
+        res = self._scale_transform(res)
 
-        if with_scaling:
-            res = self._scale_transform(res)
         return res
 
 
@@ -185,7 +144,7 @@ class Predictor:
         This allow injecting another model instead, as it uses fit(x,y) and predict(x).
     """
 
-    def __init__(self, pca_result=None, brain_maps=None, load_ica_result=False,
+    def __init__(self, pca_result, brain_maps=None, load_ica_result=False,
                  sample_file_path=r'..\resources\example.dtseries.nii'):
         """Init the predictor.
 
@@ -230,12 +189,13 @@ class Predictor:
         :param subjects_task: y,
                 [n_samples, n_results] Matrix like object containing the subject task results.
         """
-        self._spatial_filters = feature_extraction.get_spatial_filters(
-            self._pca_result, self._brain_maps, self._load_ica_result)
+        if self._spatial_filters is None:
+            self._spatial_filters = feature_extraction.get_spatial_filters(
+                self._pca_result, self._brain_maps, self._load_ica_result)
         betas = []
         for subject_feature, task in zip(subjects_feature, subjects_task):
             betas.append(self._get_beta(subject_feature, task))
-        betas = np.array(betas, dtype=np.float32)
+        betas = np.array(betas, dtype=constants.DTYPE)
         self._betas = betas
         self._is_fitted = True
 
@@ -261,7 +221,8 @@ class Predictor:
         """
         if not self._is_fitted:
             raise BrokenPipeError("Cannot predict before the model was trained!")
-        return np.array([self._predict(subject_features) for subject_features in subjects_features])
+        return np.array([self._predict(subject_features) for subject_features in subjects_features],
+                        dtype=constants.DTYPE)
 
 
 class Localizer:
@@ -270,7 +231,9 @@ class Localizer:
 
     def __init__(self, subjects, pca_result=None, predictor=None,
                  load_feature_extraction=False,
-                 feature_extraction_path_template=None, feature_extractor=None, load_ica_result=False):
+                 feature_extraction_path_template=constants.DEFAULT_FEATURES_FILE_PATH_TEMPLATE,
+                 feature_extractor=None,
+                 load_ica_result=False):
         """Initialize a localizer object
 
         :param subjects: The subject to train on.
@@ -287,10 +250,10 @@ class Localizer:
                              "as it cannot generate a new PCA without subjects.")
 
         if pca_result is None:
-            pca_result = iterative_pca.iterative_pca(subjects)
+            pca_result = Localizer._get_pca(subjects)  # iterative_pca.iterative_pca(subjects)
 
         if feature_extractor is None:
-            feature_extractor = FeatureExtractor(pca_result,
+            feature_extractor = FeatureExtractor(pca_result=pca_result,
                                                  is_load_features_from_file=load_feature_extraction,
                                                  file_path_template=feature_extraction_path_template,
                                                  load_ica_result=load_ica_result)
@@ -301,6 +264,14 @@ class Localizer:
             predictor = Predictor(pca_result, load_ica_result=load_ica_result)
         self._predictor = predictor
 
+    @staticmethod
+    def _get_pca(subjects):
+        return sklearn.decomposition.IncrementalPCA(1000, whiten=True).fit(
+            np.concatenate(
+                [np.concatenate([ses.cifti.transpose() for ses in subject.sessions], axis=0) for subject in subjects],
+                axis=0))
+        # raise NotImplementedError("Calculating PCA Is Not yet supported")
+
     def fit(self, subjects, subjects_task):
         """Fit the current loaded model on the given data.
 
@@ -308,7 +279,7 @@ class Localizer:
         :param subjects_task: The task result of each subject.
         :return:
         """
-        subjects_feature = self._feature_extractor.fit_transform(subjects)
+        subjects_feature = self._feature_extractor.transform(subjects)
         self._predictor.fit(subjects_feature, subjects_task)
 
     def predict(self, subjects):

@@ -8,10 +8,10 @@ import numpy as np
 import sklearn
 
 import constants
+# TODO(loya) add full description.
+import prediction
 import utils.cifti_utils
 import utils.utils
-# TODO(loya) add full description.
-from prediction import Localizer, FeatureExtractor
 
 PARSER = argparse.ArgumentParser(
     description=("""
@@ -47,33 +47,41 @@ PARSER.add_argument('--input_dir', default='./',
                     In predict mode, only the rest files are required.
                     ''')  # TODO(loya) separate to rest and task, add format
 PARSER.add_argument('--output_dir', default='./results',
-                    help='''Required for prediction mode. The output folder to use for outputting the predictions.
+                    help='''Required for prediction and benchmark mode. The output folder to use for outputting the predictions.
                     The output will later be saved in the following way:
-                    output_dir/
-                        {subject}_result.pcl
+                    output_dir | {subject}_result.dtseries.nii
+                    if benchmarking it will be:
+                    output_dir | AllSubjects_{task_number}_result.dtseries.nii
+                    where the subject will be saved as a time-series.
                     ''')  # Todo(loya) decide on output format for the files.
 PARSER.add_argument('--output_filename', default='model.pcl',
                     help='The name to save the output model.')
 PARSER.add_argument('--run_with_pca', action='store_true',
                     help='Defaults to False. Set to True if you want to run with PCA, otherwise loads the result.')
-PARSER.add_argument('--pca_result', default='../test_resources/GROUP_PCA_rand200_RFMRI.dtseries.nii',
+PARSER.add_argument('--pca_result', default=constants.DEFAULT_PCA_RESULT_PATH,
                     help='Optional. Load iterative PCA result from this location.')
 PARSER.add_argument('--load_feature_extraction', action='store_true',
-                    help='Defaults to False. Set to True if you want to run with feature extraction,'
-                         ' otherwise loads the result.')
-PARSER.add_argument('--feature_extraction_result', default='../test_resources/feature_ext_result.mat',
-                    help='Optional. Load the features from the template path')
+                    help='Defaults to False. Set to True if you want to loads the result.')
+# PARSER.add_argument('--feature_extraction_result', default='../test_resources/feature_ext_result.mat',
+#                     help='Optional. Load the features from the template path')
 PARSER.add_argument('--task_filename', default=constants.DEFAULT_TASK_FILENAME,
                     help='Name of the task files. Stored in {base_dir}/Tasks')
+PARSER.add_argument('--number_of_tasks', default=constants.DEFAULT_NUMBER_OF_TASK, type=int,
+                    help='Name of the task files. Stored in {base_dir}/Tasks')
+PARSER.add_argument('--use_task_filename_as_template', action='store_true',
+                    help='''If provided, run over the nunmber of tasks to load different tasks using the 
+                    task_filename as a template  - task_filename with i+1 for i in range number_of_tasks.''')
 PARSER.add_argument('--task_ordered_subjects_filename', default=constants.DEFAULT_TASK_ORDERED_SUBJ_FILE,
                     help='The path for the file holding a list of the subject ids in the order they appear in the task'
                          ' matrices.')
-PARSER.add_argument('--model_file', default=constants.model_filename,
+PARSER.add_argument('--model_file', default=constants.MODEL_FILENAME,
                     help='Required for predict mode. The file containing the trained localizer model is located.')
 PARSER.add_argument('--benchmark', action='store_true',
-                    help='''For training mode. If presented, a Leave One Out testing method will be used, where the 
+                    help='''If presented, a Leave One Out testing method will be used, where the 
                     model will be trained each time excluding one subject, and then testing the model on this subject.
                     The mean prediction accuracy, and std, will then be presented in the console.''')
+PARSER.add_argument('--load_all_ica_results', action='store_true',
+                    help='Load all the ica from file. Will be deleted when the ICA works')
 
 ARGS = PARSER.parse_args()
 
@@ -93,6 +101,22 @@ def validate_predict_args(args):
 def validate_train_args(args):
     if not os.path.exists(args.input_dir):
         raise ValueError("Input file doesn't exist.")
+
+
+def validate_benchmark_args(args):
+    if not os.path.exists(args.input_dir):
+        raise ValueError("Input file doesn't exist.")
+
+
+def validate_train_and_benchmark_args(ARGS):
+    # do an iff that call each one
+    pass
+
+
+def validate_args(ARGS):
+    if sum([ARGS.train, ARGS.predict, ARGS.benchmark]) != 1:
+        PARSER.print_help()
+        raise ValueError("Either --train or --predict or --benchmark must be provided, and not both.")
 
 
 def load_subjects(args):
@@ -120,41 +144,38 @@ def _get_ordered_subjects_list(path_to_file):
         return ret
 
 
+def arrange_task_by_subject(subjects, subj_index_dict, all_subjects_task):
+    tasks_ordered_by_subj = []
+    for subj in subjects:
+        tasks_ordered_by_subj.append(all_subjects_task[subj_index_dict[subj.name]])
+    return tasks_ordered_by_subj
+
+
 def load_subjects_task(args, subjects):
     """Load subjects' tasks results
 
     :param args:
+    :param subjects:
     :return: [n_subjects, n_tasks_results]
     """
-    tasks_ordered_by_subj = []
-    full_path_to_tasks = os.path.join(args.input_dir, 'Tasks', args.task_filename)
     full_path_to_ordered_subjs = os.path.join(args.input_dir, args.task_ordered_subjects_filename)
     subj_index_dict = _get_ordered_subjects_list(full_path_to_ordered_subjs)
 
-    all_subjects_tasks, _ = utils.cifti_utils.load_cifti_brain_data_from_file(full_path_to_tasks)
+    full_path_to_tasks = os.path.join(args.input_dir, 'Tasks', args.task_filename)
+    if args.use_task_filename_as_template:
+        full_path_to_tasks = [full_path_to_tasks % (i + 1) for i in range(args.number_of_tasks)]
+    else:
+        full_path_to_tasks = [full_path_to_tasks]
 
-    for subj in subjects:
-        # TODO(loya) this might need transpose:
-        tasks_ordered_by_subj.append(all_subjects_tasks[subj_index_dict[subj.name]])
-    return tasks_ordered_by_subj
+    all_subjects_tasks = []
+    for subject_task_path in full_path_to_tasks:
+        task, _ = utils.cifti_utils.load_cifti_brain_data_from_file(subject_task_path)
+        all_subjects_tasks.append(arrange_task_by_subject(subjects, subj_index_dict, task))
 
-
-# todo(kess) add optiong to also include PCA
-def train_model(subjects, subjects_task, args, pca_result=None, feature_extractor=None):
-    """Train a localizer model
-
-    :param subjects: The subjects to train on.
-    :param subjects_task: The subjects' task to train on.
-    :param args:
-    :param pca_result:
-    :return: A localizer model
-    """
-    # todo(kess) this is where you change the model type.
-    localizer = Localizer(subjects, pca_result=pca_result,
-                          load_feature_extraction=args.load_feature_extraction,
-                          feature_extraction_path_template=args.feature_extraction_result, feature_extractor=feature_extractor)
-    localizer.fit(subjects, subjects_task)
-    return localizer
+    if args.use_task_filename_as_template:
+        return all_subjects_tasks
+    else:
+        return all_subjects_tasks[0]
 
 
 def get_benchmark(localizer, subjects, subjects_task):
@@ -169,61 +190,92 @@ def get_benchmark(localizer, subjects, subjects_task):
     predictions = localizer.predict(subjects)
     res = []
     for subject_task, prediction in zip(subjects_task, predictions):
-        dif = np.abs(np.array(subject_task) - np.array(prediction))
+        dif = np.abs(np.array(subject_task, dtype=constants.DTYPE) - np.array(prediction, dtype=constants.DTYPE))
         res.append(np.linalg.norm(dif))
-    return np.mean(np.array(res))
+    return np.mean(np.array(res, dtype=constants.DTYPE)), predictions
 
 
-def benchmark(subjects, subjects_task, args, pca_result=None):
+def benchmark_single_task(subjects, subjects_task, localizer):
+    predictions = None
     benchmark_list = []
-    feature_extractor = FeatureExtractor(subjects, pca_result)
-    subjects_task = np.array(subjects_task)
+    subjects_task = np.array(subjects_task, dtype=constants.DTYPE)
     subjects = np.array(subjects)
     for train_indices, test_indices in sklearn.model_selection.LeaveOneOut().split(subjects):
         print("Run on ", train_indices, test_indices)
-        localizer = train_model(subjects[train_indices],
-                                subjects_task[train_indices],
-                                args, pca_result, feature_extractor)
-        benchmark_list.append(
-            get_benchmark(localizer,
-                          subjects[test_indices],
-                          subjects_task[test_indices]))
+        localizer.fit(subjects[train_indices],
+                      subjects_task[train_indices])
+        norm_mean, predictions_for_add = get_benchmark(localizer,
+                                                       subjects[test_indices],
+                                                       subjects_task[test_indices])
+        benchmark_list.append(norm_mean)
+        if predictions is None:
+            predictions = predictions_for_add
+        else:
+            predictions = np.concatenate([predictions, predictions_for_add], axis=0)
+    return np.mean(benchmark_list), np.std(benchmark_list), np.max(benchmark_list), benchmark_list, predictions
 
-    return np.mean(benchmark_list), np.std(benchmark_list), benchmark_list
+
+def benchmark_tasks(subjects, subjects_tasks, args, pca_result):
+    print("Benchmark Starting...")
+    localizer = prediction.Localizer(subjects, pca_result,
+                                     load_feature_extraction=args.load_feature_extraction,
+                                     load_ica_result=args.load_all_ica_results)
+    raws = []
+
+    for i, subjects_task in enumerate(subjects_tasks):
+        print("Benchmarking task ", i)
+        mean, std, max, raw, predictions = benchmark_single_task(subjects, subjects_task, localizer)
+        print("Mean:", mean)
+        print("STD:", std)
+        print("max:", max)
+        raws = np.concatenate([raws, raw])
+
+        prediction_file_name = 'AllSubjects_%03d_results.dtseries.nii' % (i + 1)
+        utils.utils.create_dir(args.output_dir)
+        prediction_path = os.path.join(args.output_dir, prediction_file_name)
+        utils.cifti_utils.save_cifti(predictions, prediction_path)
+
+    return np.mean(raws), np.std(raws), np.max(raws), raws
 
 
-def main():
-    if ARGS.train and not ARGS.predict:
-        validate_train_args(ARGS)
+def main(ARGS=ARGS):
+    validate_args(ARGS)
+    if ARGS.train or ARGS.benchmark:
+        validate_train_and_benchmark_args(ARGS)
         print("Loading subjects and tasks.")
         subjects = load_subjects(ARGS)
-        subjects_task = load_subjects_task(ARGS, subjects)
         pca_result = None
         if not ARGS.run_with_pca:
             pca_result_path = os.path.join(ARGS.input_dir, ARGS.pca_result)
             pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(pca_result_path)
 
+        subjects_tasks = load_subjects_task(ARGS, subjects)
+
         if ARGS.benchmark:
             if len(subjects) <= 1:
                 raise ValueError("Not enough subjects to preform leave-one-out.")
-            print("Benchmark Starting...")
-            mean, std, raw = benchmark(subjects, subjects_task, ARGS, pca_result=pca_result)
+            mean, std, max, raw = benchmark_tasks(subjects,
+                                                  subjects_tasks,
+                                                  ARGS,
+                                                  pca_result)
             print("Benchmark Results:")
             print("Mean:", mean)
             print("STD:", std)
+            print("Max:", max)
             print("Raw data:", raw)
 
-        output_path = os.path.join(ARGS.output_dir, ARGS.output_filename)
-        print("Training Model.")
-        train_model(subjects, subjects_task, ARGS, pca_result=pca_result).save_to_file(output_path)
-        print("Finished.")
+        if ARGS.train:
+            output_path = os.path.join(ARGS.output_dir, ARGS.output_filename)
+            print("Training Model.")
+            train_model(subjects, subjects_tasks, pca_result=pca_result).save_to_file(output_path)
+            print("Finished.")
 
     elif ARGS.predict and not ARGS.train:
         validate_predict_args(ARGS)
         print("Loading subjects and tasks.")
         subjects = load_subjects(ARGS)
         print("Loading model.")
-        localizer = Localizer.load_from_file(ARGS.model_file)
+        localizer = prediction.Localizer.load_from_file(ARGS.model_file)
         print("Running predictions.")
         predictions = localizer.predict(subjects, load_feature_extraction=ARGS.load_feature_extraction,
                                         feature_extraction_path=ARGS.feature_extraction_result)
@@ -231,9 +283,6 @@ def main():
         print("Saving Results.")
         utils.cifti_utils.save_cifti(predictions, os.path.join(ARGS.output_dir, 'result.dtseries.nii'))
         print("Finished")
-    else:
-        PARSER.print_help()
-        raise ValueError("Either --train or --predict must be provided, and not both.")
 
 
 if __name__ == '__main__':

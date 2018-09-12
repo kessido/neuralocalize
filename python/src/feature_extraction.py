@@ -11,13 +11,13 @@ import sklearn.decomposition
 import constants
 import utils.cifti_utils
 import utils.utils as util
-from constants import ICA_FUCKING_CONST, dtype
+from constants import ICA_FUCKING_CONST, DTYPE
 
 
 def ica_with_threshold(image, num_ic, threshold):
     ica = sklearn.decomposition.FastICA(n_components=num_ic)
     ica_result = ica.fit_transform(image.transpose()).transpose()  # Reconstruct signals
-    thresh = (np.abs(ica_result) > threshold).astype(dtype)
+    thresh = (np.abs(ica_result) > threshold).astype(DTYPE)
     ica_time_thresh = ica_result * thresh
     end_res = np.sign(np.sum(np.sign(ica_time_thresh), 1))
     end_res_t = np.reshape(end_res, (num_ic, 1))
@@ -61,7 +61,7 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_FUCKING_CONST, num_i
     threshold_2 = ICA_FUCKING_CONST
 
     D = dice(x > threshold_2, y > threshold_2)
-    D_threshold = (D == np.transpose(np.matlib.repmat(np.amax(D, 1), D.shape[1], 1))).astype(dtype)
+    D_threshold = (D == np.transpose(np.matlib.repmat(np.amax(D, 1), D.shape[1], 1))).astype(DTYPE)
     D_tmp = ((D * D_threshold) == np.matlib.repmat(np.amax(D * D_threshold, axis=0), D.shape[1], 1))
     D_threshold = D_tmp * D_threshold
 
@@ -100,15 +100,15 @@ def dice(x, y):
     :return: nx*ny
     """
     if x.shape[0] != y.shape[0]:
-        print('x and y incompatible (dice)')
+        raise ValueError('x and y incompatible (dice)')
     nx = x.shape[1]
     ny = y.shape[1]
 
     xx = np.matlib.repmat(np.sum(x, 0), ny, 1).transpose()
     yy = np.matlib.repmat(np.sum(y, 0), nx, 1)
 
-    x = x.astype(dtype)
-    y = y.astype(dtype)
+    x = x.astype(DTYPE)
+    y = y.astype(DTYPE)
 
     temp = x.transpose() @ y
     res = 2 * temp / (xx + yy)
@@ -207,7 +207,7 @@ def get_subcortical_parcellation(cifti_image, brain_maps, load_ica_result=False)
         cifti_current_map_data = cifti_image[:, current_map.data_indices]
         spatial_ordering = corrcoef_and_spectral_ordering(cifti_current_map_data)
         res[current_map.data_indices, :] = np.hstack((spatial_ordering > 0, spatial_ordering < 0)).astype(float)
-        res[current_map.data_indices, :] = np.hstack((spatial_ordering > 0, spatial_ordering < 0)).astype(dtype)
+        res[current_map.data_indices, :] = np.hstack((spatial_ordering > 0, spatial_ordering < 0)).astype(DTYPE)
         return res
 
     def label_to_function(label):
@@ -240,7 +240,7 @@ def get_subcortical_parcellation(cifti_image, brain_maps, load_ica_result=False)
         fastica = sklearn.decomposition.FastICA(3)
         ica_y = fastica.fit_transform(cifti_current_map_data.transpose()).transpose()
 
-        thresh = np.asarray(np.abs(ica_y) > ICA_FUCKING_CONST, dtype=dtype)
+        thresh = np.asarray(np.abs(ica_y) > ICA_FUCKING_CONST, dtype=DTYPE)
 
         ica_time_thresh = ica_y * thresh
         end_res = np.sign(np.sum(np.sign(ica_time_thresh), axis=1))

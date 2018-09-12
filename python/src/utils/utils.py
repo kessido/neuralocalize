@@ -157,6 +157,7 @@ class Normalizer(object):
         self.mean = None
         self.std = None
         self.dim = dim
+        self._computed_dim = dim
 
     def fit(self, x, y=None):
         """Fit the normalizer to the data.
@@ -177,7 +178,7 @@ class Normalizer(object):
         dim_rep = np.ones([len(dims)])
         dim_rep[dim] = dim_size
 
-        self.dim = dim
+        self._computed_dim = dim
         self.mean = np.mean(x, axis=dim, keepdims=True)
         self.std = np.std(x, axis=dim, ddof=1, keepdims=True)
         self.is_fit = True
@@ -196,7 +197,7 @@ class Normalizer(object):
         if not self.is_fit:
             raise ValueError("The Normalizer must be fitted before calling normalize!")
 
-        dim = self.dim
+        dim = self._computed_dim
         dims = x.shape
         dim_size = dims[dim]
         dim_rep = np.ones([len(dims)])
@@ -204,10 +205,10 @@ class Normalizer(object):
 
         x = x - np.tile(self.mean, dim_rep.astype(dtype=int))
         x = x / np.tile(self.std, dim_rep.astype(dtype=int))
-
         x = x / np.sqrt(dim_size - 1)
         x[np.isnan(x)] = 0
         x[np.isinf(x)] = 0
+
         return x
 
     @staticmethod
