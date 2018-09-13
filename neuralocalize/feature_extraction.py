@@ -181,7 +181,6 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
 		res = np.zeros([cifti_image.shape[1], 2])
 		cifti_current_map_data = cifti_image[:, current_map.data_indices]
 		spatial_ordering = corrcoef_and_spectral_ordering(cifti_current_map_data)
-		res[current_map.data_indices, :] = np.hstack((spatial_ordering > 0, spatial_ordering < 0)).astype(float)
 		res[current_map.data_indices, :] = np.hstack((spatial_ordering > 0, spatial_ordering < 0)).astype(DTYPE)
 		return res
 

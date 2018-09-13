@@ -124,7 +124,7 @@ def validate_train_and_benchmark_args(args):
 def validate_args(args):
 	if sum([args.train, args.predict, args.benchmark]) != 1:
 		PARSER.print_help()
-		raise ValueError("Either --train or --predict or --benchmark must be provided, and not both.")
+		raise ValueError("Either --train or --predict or --benchmark must be provided.")
 
 def load_subjects(input_dir, number_of_subjects):
 	subjects = []
