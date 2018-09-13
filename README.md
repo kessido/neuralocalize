@@ -2,16 +2,17 @@ This package implements the model training and prediction described in Tavor el 
 Task-free MRI predicts individual differences in brain activity during task performance:
 http://science.sciencemag.org/content/352/6282/216.
 
-This is the git repository for the seminar of Ido Tavor's team of 2018 - Ido Kessler, Noam Loya and Itay Itzhak
+This is the git repository for the Neuroscience seminar of Ido Tavor's team of 2018 - Ido Kessler, Noam Loya and Itay Itzhak
 
 # Neural Localizer
 
+The neuralocalizer implemets Tavor et al's model, for prediction of Task fMRI according to the rest fMRI.
 
 # Installation
 
 A simple pip install should work
 ```
-pip install git+https://github.com/kessido/neuralocalize
+pip install git+https://github.com/kessido/Neuroscience-seminar
 ```
 
 # Usage (Python)
@@ -60,7 +61,6 @@ localizer_model = neuralocalize.Localizer(subjects=subjects, compute_pca=True)
 
 ## 4. Predict using your model:
 ```
-import scipy.linalg as sl
 class SimplePredictorGenerator:
 	class PredictorModel:
 		def __init__(self, beta):
@@ -115,11 +115,11 @@ input_dir
 |__ Tasks
 |     |__ {Tasks files .dtseries.nii}
 |
-|__ {Subject ordering inside the tasks files .txt}
+|__ {Subject ordering inside the tasks file .txt}
 
 ```
 
-Notice that the "Subject ordering inside the tasks files", is just a simple text file listing the subjects by their appearance in the tasks files.
+Notice that the "Subject ordering inside the tasks file", is just a simple text file listing the subjects by their appearance in the tasks files.
 
 
 ## 1. Training the model
