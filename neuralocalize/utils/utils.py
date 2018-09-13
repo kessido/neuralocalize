@@ -4,6 +4,7 @@ import warnings
 import numpy as np
 import scipy
 import scipy.linalg as sl
+from sklearn.decomposition import TruncatedSVD
 
 from . import constants
 from . import cifti_utils
@@ -194,11 +195,12 @@ def fsl_variance_normalize(y, n=30, threshold_a=2.3, threshold_b=0.001):
 	"""Implementation of the MATLAB fsl_normalize method into python.
 	"""
 	k = min(n, min(y.shape) - 1)
-	u, s, vt = scipy.sparse.linalg.svds(y, k)
-	s = scipy.linalg.diagsvd(s, k, k)
-
+	svd = TruncatedSVD(k)
+	us = svd.fit_transform(y)
+	vt = svd.components_
+	
 	threshold = threshold_a * np.std(vt, ddof=1)
 	vt[np.abs(vt) < threshold] = 0
 
-	stds = np.maximum(np.std(y - u @ s @ vt, ddof=1, axis=0), threshold_b)
+	stds = np.maximum(np.std(y - us @ vt, ddof=1, axis=0), threshold_b)
 	return y / np.tile(stds, (y.shape[0], 1))  # this might need to be zero and not 1

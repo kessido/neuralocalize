@@ -60,6 +60,7 @@ localizer_model = neuralocalize.Localizer(subjects=subjects, compute_pca=True)
 
 ## 4. Predict using your model:
 ```
+import scipy.linalg as sl
 class SimplePredictorGenerator:
 	class PredictorModel:
 		def __init__(self, beta):

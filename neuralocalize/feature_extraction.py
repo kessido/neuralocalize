@@ -69,14 +69,12 @@ def cifti_extract_data(cifti_image, BM, side):
 	"""
 	if side == 'L':
 		data = cifti_image[:, BM[0].data_indices]
+	elif side == 'R':
+		data = cifti_image[:, BM[1].data_indices]
+	elif side == 'both':
+		data = cifti_image
 	else:
-		if side == 'R':
-			data = cifti_image[:, BM[1].data_indices]
-		else:
-			if side == 'both':
-				data = cifti_image
-			else:
-				raise ValueError('error: bad cifti_extract_data command, side is not L, R or both')
+		raise ValueError('error: bad cifti_extract_data command, side is not L, R or both')
 	return data
 
 
