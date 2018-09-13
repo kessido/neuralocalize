@@ -12,7 +12,7 @@ The neuralocalizer implemets Tavor et al's model, for prediction of Task fMRI ac
 
 A simple pip install should work
 ```
-pip install git+https://github.com/kessido/Neuroscience-seminar
+pip install git+https://github.com/kessido/neuralocalize
 ```
 
 # Usage (Python)
@@ -61,6 +61,7 @@ localizer_model = neuralocalize.Localizer(subjects=subjects, compute_pca=True)
 
 ## 4. Predict using your model:
 ```
+import scipy.linalg as sl
 class SimplePredictorGenerator:
 	class PredictorModel:
 		def __init__(self, beta):
@@ -115,11 +116,11 @@ input_dir
 |__ Tasks
 |     |__ {Tasks files .dtseries.nii}
 |
-|__ {Subject ordering inside the tasks file .txt}
+|__ {Subject ordering inside the tasks files .txt}
 
 ```
 
-Notice that the "Subject ordering inside the tasks file", is just a simple text file listing the subjects by their appearance in the tasks files.
+Notice that the "Subject ordering inside the tasks files", is just a simple text file listing the subjects by their appearance in the tasks files.
 
 
 ## 1. Training the model
