@@ -77,7 +77,7 @@ In benchmark, run over the range of 1 to nunmber_of_tasks to load different task
 using the task_filename as a template. In pseudocode: ['/'.join[output_dir,'Tasks',task_filename].format[i+1] for i in range[number_of_tasks]]
 Is not relevant for prediction.''')
 
-PARSER.add_argument('--number_of_tasks_for_benchmark', default=86, type=int, help='Defaults to 86. number of task to load. Is relevant only for benchmark.')
+PARSER.add_argument('--number_of_tasks', default=86, type=int, help='Defaults to 86. number of task to load. Is relevant only for benchmark.')
 
 PARSER.add_argument('--task_ordered_subjects_filename', default='subjects.txt', help=
 '''
