@@ -1,5 +1,9 @@
+import sys
+import os.path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 import numpy as np
-import utils.cifti_utils
+import neuralocalize.utils.cifti_utils as cifti_utils
 from scipy.stats.stats import pearsonr
 
 
@@ -9,8 +13,8 @@ def get_pearson_corr(result_path, org_path):
     :param org - an array that represent nii file of the original task.
     :return: The correlation between -1 and 1.
     """
-    result,_ = utils.cifti_utils.load_cifti_brain_data_from_file(result_path)
-    org,_ = utils.cifti_utils.load_cifti_brain_data_from_file(org_path)
+    result,_ = cifti_utils.load_cifti_brain_data_from_file(result_path)
+    org,_ = cifti_utils.load_cifti_brain_data_from_file(org_path)
     org = np.resize(org, result.shape)
 
     result = result#.flatten()
@@ -34,8 +38,8 @@ r_s = []
 task_ids = range(1, 87)
 for task in task_ids:
     print("Task:", task)
-    result_path = '..\\test_resources\\result_of_ten\\AllSubjects_%s_results.dtseries.nii' % str(task).zfill(3)
-    org_path = '..\\test_resources\\Tasks\\AllSubjects_%s.dtseries.nii' % str(task).zfill(3)
+    result_path = r'C:\Users\t-idkess\Desktop\result_of_LOO_of_first_10\AllSubjects_%s_results.dtseries.nii' % str(task).zfill(3)
+    org_path = r'E:\MatlabPredictionWith10Subjects\predictions\contrast_%s_pred_loo.dtseries.nii' % str(task).zfill(3)
     r_s.append(get_pearson_corr(result_path, org_path))
 
 r_s = np.array(r_s)

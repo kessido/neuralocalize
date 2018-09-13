@@ -5,8 +5,8 @@ import cifti
 import nibabel as nib
 import numpy as np
 
-import constants
-import utils.utils
+from . import constants, utils
+
 
 
 class BrainMap:
@@ -40,16 +40,15 @@ def load_cifti_brain_data_from_file(nii_path):
     return cifti_image, brain_maps
 
 
-def get_cortex_and_sub_cortex_indices(sample_file_path='./example.dtseries.nii'):
+def get_cortex_and_sub_cortex_indices(brain_maps):
     """Generate two list: The cortex indices and the sub-cortex indices.
 
     :param sample_file_path: the file path to load from the cortex indices.
     :return: (cortex indices list, sub-cortex indices list)
     """
-    _, brain_maps = load_cifti_brain_data_from_file(sample_file_path)
     ctx_inds = list(itertools.chain(
         brain_maps[0].data_indices, brain_maps[1].data_indices))
-    sub_ctx_inds = utils.utils.remove_elements_from_list(range(91282), ctx_inds)
+    sub_ctx_inds = utils.remove_elements_from_list(range(91282), ctx_inds)
     return np.array(ctx_inds), np.array(sub_ctx_inds)
 
 

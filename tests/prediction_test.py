@@ -1,12 +1,14 @@
+import sys
+import os.path
+sys.path.append(os.path.join(os.path.dirname(__file__),'..'))
+
 import traceback
 
 import numpy as np
 
-import constants
-import localize
-import prediction
-import utils.cifti_utils
-import utils.utils as util
+from neuralocalize.utils import constants
+from neuralocalize import localize, prediction, utils
+import neuralocalize.utils.utils as util
 
 
 class Args():
