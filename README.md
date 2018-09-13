@@ -114,11 +114,11 @@ input_dir
 |__ Tasks
 |     |__ {Tasks files .dtseries.nii}
 |
-|__ {Subject ordering inside the tasks file .txt}
+|__ {Subject ordering inside the tasks files .txt}
 
 ```
 
-Notice that the "Subject ordering inside the tasks file", is just a simple text file listing the subjects by their appearance in the tasks files.
+Notice that the "Subject ordering inside the tasks files", is just a simple text file listing the subjects by their appearance in the tasks files.
 
 
 ## 1. Training the model

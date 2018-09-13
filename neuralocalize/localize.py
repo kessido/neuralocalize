@@ -93,7 +93,7 @@ Should be under: input_dir | model_filename
 In Train mode: It's the output file to save the model to: output_dir | model_filename
 ''')
 
-PARSER.add_argument('--prediction_results_filename', default='result.dtseries.nii', help=
+PARSER.add_argument('--prediction_results_filename', help=
 '''
 When predicting a task, this is the output filename that will be used.''')
 
@@ -113,7 +113,14 @@ def validate_predict_args(args):
 	if not os.path.exists(os.path.join(args.input_dir, args.model_filename)):
 		raise ValueError("Model file doesn't exist.")
 
+	if args.prediction_results_filename is None:
+		raise ValueError("Needs output name for the predictions (prediction_results_filename)")
+
 def validate_train_and_benchmark_args(args):
+	if args.benchmark:
+		if args.prediction_results_filename is None:
+			raise ValueError("Needs name template for the tasks output (prediction_results_filename)")
+
 	if not os.path.exists(args.input_dir):
 		raise ValueError("Input folder doesn't exist.")
 	
@@ -214,7 +221,7 @@ def benchmark_tasks(subjects, subjects_tasks, args, localizer):
 		print("max:", max)
 		raws = np.concatenate([raws, raw])
 
-		prediction_file_name = 'AllSubjects_%03d_results.dtseries.nii' % (i + 1)
+		prediction_file_name = args.prediction_results_filename % (i + 1)
 		utils.utils.create_dir(args.output_dir)
 		prediction_path = os.path.join(args.output_dir, prediction_file_name)
 		utils.cifti_utils.save_cifti(predictions, prediction_path)
