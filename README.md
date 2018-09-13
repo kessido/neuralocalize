@@ -11,7 +11,7 @@ This is the git repository for the seminar of Ido Tavor's team of 2018 - Ido Kes
 
 A simple pip install should work
 ```
-pip install git+https://github.com/kessido/Neuroscience-seminar
+pip install git+https://github.com/kessido/neuralocalize
 ```
 
 # Usage (Python)
