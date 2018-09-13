@@ -137,15 +137,6 @@ localize --predict --task_filename AllSubjects_001.dtseries.nii --input_dir ./My
 
 This will output a "task001.dtseries.nii" file into the "TasksPrediction" folder, containing the predictions of the subjects in the input_dir on the specific task.
 
-## 2. Predicting with the model
-
-```
-localize --predict --input_dir ./MyTestingInputFolder/ --output_dir ./TasksPrediction/ --model_filename Task001Model.pcl.gz --prediction_results_filename task001.dtseries.nii
-``` 
-
-This will output a "task001.dtseries.nii" file into the "TasksPrediction" folder, containing the predictions of the subjects in the input_dir on the specific task.
-
-
 ## 3. Benchmarking 
 
 ```
