@@ -3,6 +3,7 @@ import warnings
 
 import numpy as np
 import scipy
+import scipy.linalg as sl
 
 from . import constants
 from . import cifti_utils
@@ -59,7 +60,7 @@ def fsl_glm(x, y):
 	Returns:
 		the t-coefficient of the data.
 	"""
-	beta = np.linalg.pinv(x)@y
+	beta = sl.lstsq(x, y)[0]
 	r = y - np.dot(x, beta)
 	dof = np.size(y, 0) - np.linalg.matrix_rank(x)
 
@@ -91,8 +92,7 @@ def fsl_demean(x, dim=None):
 	dim_rep = np.ones([len(dims)])
 	dim_rep[dim] = dim_size
 	mean = np.mean(x, dim, keepdims=True)
-	x = x - np.tile(mean, dim_rep.astype(dtype=int))
-	return x
+	return x - np.tile(mean, dim_rep.astype(dtype=int))
 
 
 class Session(object):
@@ -193,11 +193,8 @@ def fsl_normalize(x, dim=None):
 def fsl_variance_normalize(y, n=30, threshold_a=2.3, threshold_b=0.001):
 	"""Implementation of the MATLAB fsl_normalize method into python.
 	"""
-	from sklearn.utils.extmath import randomized_svd
-
 	k = min(n, min(y.shape) - 1)
-	u, s, vt = randomized_svd(y, n_components=k)
-	
+	u, s, vt = scipy.sparse.linalg.svds(y, k)
 	s = scipy.linalg.diagsvd(s, k, k)
 
 	threshold = threshold_a * np.std(vt, ddof=1)

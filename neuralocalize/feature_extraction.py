@@ -1,11 +1,9 @@
 """This code simulates the feature extraction part of the connectivity model.
 """
 import numpy as np
-# TODO(loya) make sure and remove these two
-# TODO(loya) make sure and remove these two
 import numpy.matlib as matlib
-import scipy.io
 import scipy.signal
+import scipy.linalg as sl
 import sklearn
 import sklearn.decomposition
 
@@ -16,6 +14,8 @@ from .utils.constants import ICA_THRESHOLD_CONST, DTYPE
 
 
 def ica_with_threshold(image, num_ic, threshold):
+	"""Run ica and threshold and parcellate the results.
+	"""
 	ica = sklearn.decomposition.FastICA(n_components=num_ic)
 	ica_result = ica.fit_transform(image.transpose()).transpose()  # Reconstruct signals
 	thresh = (np.abs(ica_result) > threshold).astype(DTYPE)
@@ -27,16 +27,8 @@ def ica_with_threshold(image, num_ic, threshold):
 
 
 def run_group_ica_separately(cifti_image, BM, threshold=ICA_THRESHOLD_CONST, num_ic=40, N=91282):
-	# TODO num_ic, N, consts: figure out and rename.
 	"""Runs a group ICA for each hemisphere separately
-	:param left_hemisphere_data:
-	:param right_hemisphere_data:
-	:param BM:
-	:param num_ic: number of independent components
-	:param threshold:
-	:return:
 	"""
-
 	print("Running Group ICA on each hemisphere separately.")
 	# TODO (Itay) cifti_image to left_hemisphere_data and right_hemisphere_data
 	left_hemisphere_data = cifti_extract_data(cifti_image, BM, 'L')
@@ -68,7 +60,7 @@ def run_group_ica_separately(cifti_image, BM, threshold=ICA_THRESHOLD_CONST, num
 	x = np.zeros((N, len(r)))
 	x[BM[0].data_indices, :x.shape[1]] = np.transpose(left_ica[r, :])
 	x[BM[1].data_indices, :len(c)] = np.transpose(right_ica[c, :])
-
+	
 	return x.transpose()
 
 
@@ -111,26 +103,20 @@ def dice(x, y):
 	return res
 
 
-def run_group_ica_together(cifti_image, BM, threshold=ICA_THRESHOLD_CONST, num_ic=50):
-	# TODO num_ic, N, consts: figure out and rename.
+def run_group_ica_together(pca_result, BM, threshold=ICA_THRESHOLD_CONST, num_ic=50):
 	"""Runs a group ICA for both hemispheres, to use as spatial filters.
-	:param both_hemisphere_data:
-	:param num_ic:
-	:return:
 	"""
 	print("Running Group ICA on both hemispheres.")
-	both_hemisphere_data = cifti_extract_data(cifti_image, BM, 'both')
+	both_hemisphere_data = cifti_extract_data(pca_result, BM, 'both')
 	both_ica = ica_with_threshold(both_hemisphere_data, num_ic, threshold)
+	
 	return both_ica.transpose()
 
 
 def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=91282):
-	"""Runs dual regression TODO(whoever) expand and elaborate.
+	"""Runs dual regression.
 
 	Updates the cifti image in every subject.
-	:param left_right_hemisphere_data:
-	:param subjects:
-	:param size_of_g:
 	"""
 	print("Running Dual Regression.")
 	single_hemisphere_shape = left_right_hemisphere_data.shape[1]
@@ -155,7 +141,6 @@ def run_dual_regression(left_right_hemisphere_data, BM, subjects, size_of_g=9128
 			subject_data.append(deterended_data)
 		subject_data = np.concatenate(subject_data, axis=1)
 		T = g_pseudo_inverse @ subject_data
-
 		t = util.fsl_glm(np.transpose(T), np.transpose(subject_data))
 		subject.left_right_hemisphere_data = np.transpose(t) * hemis
 
@@ -170,8 +155,6 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
 
 	def use_as_is_brain_map_handler(cifti_image, current_map):
 		"""Uses the brain map with no prepossessing
-		:param cifti_image:
-		:param current_map:
 		:return: numpy array (no. voxels, 1), 1 if index is in part of the current part, 0 otherwise
 		"""
 		ret = np.zeros([cifti_image.shape[1], 1])
@@ -180,7 +163,6 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
 
 	def corrcoef_and_spectral_ordering(mat):
 		"""Implementation of reord2 + corrcoef function that was used in the matlab version
-		:param mat: The data matrix
 		:return: spectral ordering of the corrcoef matrix of A
 		"""
 		mat = np.corrcoef(mat.transpose()) + 1
@@ -194,8 +176,6 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
 	def half_split_using_corrcoef_and_spectral_ordering_brain_map_handler(cifti_image, current_map):
 		"""This split the data into 2 different clusters using corrcoef,
 		spatial ordering, and positive\negative split
-		:param cifti_image:
-		:param current_map:
 		:return: numpy array (no. voxels , 2), each vector is a 0\1 vector representing the 2 clusters
 		"""
 		res = np.zeros([cifti_image.shape[1], 2])
@@ -226,12 +206,9 @@ def get_subcortical_parcellation(cifti_image, brain_maps):
 		"""This split the data into 3 parts by counting the eddect of each of the 3 first components
 		in the ICA analysis on all the voxels, and determines the cluster by the one with the maximum
 		connection to the voxel.
-		:param cifti_image:
-		:param current_map:
 		:return: numpy array (no. voxels , 3), each vector is a 0\1 vector representing the 3 clusters
 		"""
 		cifti_current_map_data = cifti_image[:, current_map.data_indices]
-		# todo(kess) this FastICA does not yield the same result as
 		fastica = sklearn.decomposition.FastICA(3)
 		ica_y = fastica.fit_transform(cifti_current_map_data.transpose()).transpose()
 
@@ -279,7 +256,7 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
 			W.append(scaled)
 		W = np.concatenate(W, axis=1)
 		# MULTIPLE REGRESSION
-		T = np.linalg.pinv(ROIS) @ W
+		T = sl.lstsq(ROIS, W)[0]
 		# CORRELATION COEFFICIENT
 		normalized_T = utils.utils.fsl_normalize(T, 1)
 		normalized_W = utils.utils.fsl_normalize(np.transpose(W), 0)
@@ -287,22 +264,21 @@ def get_semi_dense_connectome(semi_dense_connectome_data, subjects):
 		subject.correlation_coefficient = F
 
 
-def get_spatial_filters(pca_result, brain_maps):
+def get_spatial_filters(group_ica_together):
 	"""Gets the filters (a result of the ica on the pca result), uses threshold and do winner-take-all
 	The returned matrix is an index matrix which is MATLAB compatible.
 	"""
 	print("Getting Spatial Filters.")
-	filters = run_group_ica_together(pca_result, brain_maps)
 	spatial_const = ICA_THRESHOLD_CONST
 
-	m = np.amax(filters, axis=1)
+	m = np.amax(group_ica_together, axis=1)
 
 	# +1 for MATLAB compatibility
-	wta = np.argmax(filters, axis=1) + 1
+	wta = np.argmax(group_ica_together, axis=1) + 1
 	wta = wta * (m > spatial_const)
 
-	S = np.zeros_like(filters)
-	for i in range(filters.shape[1]):
+	S = np.zeros_like(group_ica_together)
+	for i in range(group_ica_together.shape[1]):
 		# +1 for MATLAB compatibility
 		S[:, i] = (wta == i + 1).astype(float)
 	return S

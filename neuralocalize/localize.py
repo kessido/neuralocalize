@@ -61,38 +61,25 @@ PARSER.add_argument('--output_dir', default='./results',  help=
 Required for prediction and benchmark mode. 
 The output folder to use for outputting the predictions.
 The output will later be saved in the following way:
-output_dir | {subject}_result.dtseries.nii
+output_dir | {prediction_results_filename}
 if benchmarking it will be:
 output_dir | AllSubjects_{task_number}_result.dtseries.nii
 where the subject will be saved as a time-series.
 ''')
 
-#todo(kess) maybe delete this if we can't run pca.
 PARSER.add_argument('--compute_pca', action='store_true', help='Defaults to False. Set to True of you want to run the pca. This takes time. Is not relevant for prediction.')
 PARSER.add_argument('--pca_result_filename', default=None, help='Optional. Load PCA result from this location. Is not relevant for prediction.')
 
-# todo(kess) delete this - irrelevant to the user.
-# PARSER.add_argument('--load_subjects_features_from_file', action='store_true', help=
-# '''
-# Defaults to False. Set to True if you want to loads the result from subjects_feature_path_template.
-# Is not relevant for prediction as it is part of the model setting being loaded.
-# ''')
-# PARSER.add_argument('--subjects_feature_path_template', help=
-# '''
-# Optional. Load the features from the template path. In pseudocode: [subjects_feature_path_template.format[subj.name] for subj.name in subjects]
-# Is not relevant for prediction.
-# ''')
-
-PARSER.add_argument('--task_filename', help='Name of the task files. Stored in {input_dir}/Tasks. Is not relevant for prediction.')
-PARSER.add_argument('--number_of_tasks', default=86, type=int, help='Defaults to 86. number of task to load. Is not relevant for prediction.')
-PARSER.add_argument('--use_task_filename_as_template', action='store_true',  help=
+PARSER.add_argument('--task_filename', help=
 '''
-Defaults to False. If provided, run over the range of 1 to nunmber_of_tasks to load different tasks 
+Name of the task files. Stored in {input_dir}/Tasks. Is not relevant for prediction.
+In benchmark, run over the range of 1 to nunmber_of_tasks to load different tasks 
 using the task_filename as a template. In pseudocode: ['/'.join[output_dir,'Tasks',task_filename].format[i+1] for i in range[number_of_tasks]]
-Is not relevant for prediction.
-''')
+Is not relevant for prediction.''')
 
-PARSER.add_argument('--task_ordered_subjects_filename', help=
+PARSER.add_argument('--number_of_tasks_for_benchmark', default=86, type=int, help='Defaults to 86. number of task to load. Is relevant only for benchmark.')
+
+PARSER.add_argument('--task_ordered_subjects_filename', default='subjects.txt', help=
 '''
 The file name for the file holding a list of the subject ids in the order they appear in the task matrices.
 Should be located under: input_dir | task_ordered_subjects_filename
@@ -106,15 +93,20 @@ Should be under: input_dir | model_filename
 In Train mode: It's the output file to save the model to: output_dir | model_filename
 ''')
 
+PARSER.add_argument('--prediction_results_filename', default='result.dtseries.nii', help=
+'''
+When predicting a task, this is the output filename that will be used.''')
+
+PARSER.add_argument('--number_of_subjects', default=0, type=int, help=
+"""
+Optional. If given, take the first number_of_subjects instead of all the subject under the directory.
+""")
+
 
 ARGS = PARSER.parse_args()
 
 
 def validate_predict_args(args):
-	"""Validates the prediction arguments are correct.
-	:param args:
-	:return:
-	"""
 	if not os.path.exists(args.input_dir):
 		raise ValueError("Input folder doesn't exist.")
 
@@ -134,15 +126,12 @@ def validate_args(args):
 		PARSER.print_help()
 		raise ValueError("Either --train or --predict or --benchmark must be provided, and not both.")
 
-def load_subjects(input_dir):
-	"""Load subjects
-
-	:param input_dir:
-	:return: [n_subjects, n_data]
-	"""
+def load_subjects(input_dir, number_of_subjects):
 	subjects = []
 	subj_dir = os.path.join(input_dir, 'Subjects')
 	subject_folders = os.listdir(subj_dir)
+	if number_of_subjects > 0 and number_of_subjects < len(subject_folders):
+		subject_folders = subject_folders[:number_of_subjects]
 	print("Loading", len(subject_folders), "subjects from", subj_dir)
 	for subj_folder in subject_folders:
 		subj = utils.utils.Subject(name=subj_folder)
@@ -164,36 +153,25 @@ def arrange_task_by_subject(subjects, subj_index_dict, all_subjects_task):
 	tasks_ordered_by_subj = []
 	for subj in subjects:
 		tasks_ordered_by_subj.append(all_subjects_task[subj_index_dict[subj.name]])
-	return tasks_ordered_by_subj
+	return np.array(tasks_ordered_by_subj)
 
 
 def load_subjects_task(args, subjects):
-	"""Load subjects' tasks results
-
-	:param args:
-	:param subjects:
-	:return: [n_subjects, n_tasks_results]
-	"""
 	full_path_to_ordered_subjs = os.path.join(args.input_dir, args.task_ordered_subjects_filename)
 	subj_index_dict = _get_ordered_subjects_list(full_path_to_ordered_subjs)
 
-	full_path_to_tasks = os.path.join(args.input_dir, 'Tasks', args.task_filename)
-	if args.use_task_filename_as_template:
-		full_path_to_tasks = [full_path_to_tasks % (i + 1) for i in range(args.number_of_tasks)]
-	else:
-		full_path_to_tasks = [full_path_to_tasks]
+	full_path_to_tasks = [os.path.join(args.input_dir, 'Tasks', args.task_filename)]
+	if args.benchmark:
+		full_path_to_tasks = [full_path_to_tasks[0] % (i + 1) for i in range(args.number_of_tasks)]
 	
 	for subject_task_path in full_path_to_tasks:
 		task, _ = utils.cifti_utils.load_cifti_brain_data_from_file(subject_task_path)
-		yield arrange_task_by_subject(subjects, subj_index_dict, task)
+		res = arrange_task_by_subject(subjects, subj_index_dict, task)
+		yield res
 
 def get_benchmark(localizer, subjects, subjects_task):
 	"""Get a benchmark of the localizer on the subjects and subjects_task
 	2-norm mean.
-
-	:param localizer:
-	:param subjects: The subjects to test on.
-	:param subjects_task: The subjects' task to test on.
 	:return: The benchmark.
 	"""
 	predictions = localizer.predict(subjects)
@@ -246,22 +224,18 @@ def benchmark_tasks(subjects, subjects_tasks, args, localizer):
 
 def main(ARGS=ARGS):
 	validate_args(ARGS)
-	subjects = load_subjects(ARGS.input_dir)[:2]
-	
+	subjects = load_subjects(ARGS.input_dir, ARGS.number_of_subjects)
+		
 	if ARGS.train or ARGS.benchmark:
 		validate_train_and_benchmark_args(ARGS)
 		
-		if ARGS.compute_pca:	
-			pca_result = None
-		else:
-			if ARGS.pca_result_filename is None:
-				pca_result_path = constants.DEFAULT_PCA_RESULT_PATH
-			else:
-				pca_result_path = os.path.join(ARGS.input_dir, ARGS.pca_result_filename)
+		pca_result = None
+		if not ARGS.compute_pca and ARGS.pca_result_filename is not None:
+			pca_result_path = os.path.join(ARGS.input_dir, ARGS.pca_result_filename)
 			pca_result, _ = utils.cifti_utils.load_cifti_brain_data_from_file(pca_result_path)
 		
 		subjects_tasks = load_subjects_task(ARGS, subjects)
-		localizer = prediction.Localizer(subjects, pca_result)
+		localizer = prediction.Localizer(subjects=subjects, pca_result=pca_result, compute_pca=ARGS.compute_pca)
 
 		if ARGS.benchmark:
 			if len(subjects) <= 1:
@@ -279,16 +253,17 @@ def main(ARGS=ARGS):
 		if ARGS.train:
 			output_path = os.path.join(ARGS.output_dir, ARGS.model_filename)
 			print("Training Model.")
-			localizer.fit(subjects, subjects_tasks)
+			localizer.fit(subjects, next(subjects_tasks))
+			utils.utils.create_dir(args.output_dir)
 			localizer.save_to_file(output_path)
-			
+
 			
 	if ARGS.predict:
 		validate_predict_args(ARGS)
-		localizer = prediction.Localizer.load_from_file(ARGS.imput_model_filename)
+		localizer = prediction.Localizer.load_from_file(os.path.join(ARGS.input_dir, ARGS.model_filename))
 		predictions = localizer.predict(subjects)
 		utils.utils.create_dir(ARGS.output_dir)
-		utils.cifti_utils.save_cifti(predictions, os.path.join(ARGS.output_dir, 'result.dtseries.nii'))
+		utils.cifti_utils.save_cifti(predictions, os.path.join(ARGS.output_dir, ARGS.prediction_results_filename))
 
 
 if __name__ == '__main__':
