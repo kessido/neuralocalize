@@ -203,7 +203,7 @@ class Localizer:
 	"""A class containing the localizer model data.
 	"""
 
-	def __init__(self, subjects=None, pca_result=None, compute_pca = False, predictor_generator = None,
+	def __init__(self, subjects=None, pca_result=None, compute_pca = False, number_of_pca_component = 1000, predictor_generator = None,
 				 sample_file_path=constants.EXAMPLE_FILE_PATH):
 		"""Initialize a localizer object
 		"""
@@ -213,18 +213,19 @@ class Localizer:
 			raise ValueError("Cannot run pca if no subjects were provided.")
 		
 		if compute_pca:
-			pca_result = Localizer._get_pca(subjects) # iterative_pca.iterative_pca(subjects)
+			pca_result = Localizer._get_pca(subjects, number_of_pca_component) # iterative_pca.iterative_pca(subjects)
 
 		self._feature_extractor = FeatureExtractor(pca_result=pca_result, default_brain_map=brain_maps)												 
 		self._predictor = Predictor(pca_result=pca_result, default_brain_map=brain_maps, predictor_generator=predictor_generator)
 
 	@staticmethod
-	def _get_pca(subjects):
-		data = np.concatenate(
-				[np.concatenate([ses.cifti.transpose() for ses in subject.sessions], axis=1) for subject in subjects],
-				axis=1)
-		print('data.shape',data.shape)
-		return sklearn.decomposition.IncrementalPCA(1000).fit_transform(data)
+	def _get_pca(subjects, number_of_pca_component):
+		incPCA = sklearn.decomposition.IncrementalPCA(number_of_pca_component)
+		for subject in subjects:
+			ses = np.concatenate([ses.cifti.transpose() for ses in subject.sessions], axis=1)
+			incPCA.partial_fit(ses)
+		print(incPCA.n_components.shape)
+		return incPCA.n_components
 
 	def fit(self, subjects, subjects_task):
 		"""Fit the current loaded model on the given data.
